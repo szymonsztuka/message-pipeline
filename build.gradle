@@ -1,8 +1,14 @@
 version '1.0-SNAPSHOT'
 
 apply plugin: 'java'
+apply plugin: 'idea'
 
-sourceCompatibility = 1.8
+sourceCompatibility = 1.7
+
+configurations {
+    provided
+    provided.extendsFrom(compile)
+}
 
 jar {
     manifest {
@@ -18,3 +24,4 @@ dependencies {
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.+'
     compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.+'
 }
+
