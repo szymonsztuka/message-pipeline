@@ -9,10 +9,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Properties;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 
 public class Coordinator {
@@ -76,29 +74,18 @@ public class Coordinator {
         if(restartServerAfterEachFile) {
             statelessBootstrap();
         } else {
-            statefullBootstrap();
+            stateFullBootstrap();
         }
 
     }
 
     public void statelessBootstrap() {
 
-        final List<Path> writerFileNames = new ArrayList<Path>();
-        Path inputDir = Paths.get(producerInputDirectory);
-        RecuriveFileCollector walk= new RecuriveFileCollector();
-        try {
-            Files.walkFileTree(inputDir, walk);
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-        Path outputDir = Paths.get(consumerOutputDirectory);
-        int x = outputDir.getNameCount();
-        final List<Path> readerFileNames = walk.getResult();
-        for(Path path: readerFileNames) {
-            Path outputSubpath = path.subpath(x, path.getNameCount());
-            Path newOne = outputDir.resolve(outputSubpath);
-            readerFileNames.add(newOne);
-        }
+        final List<Path> writerFileNames = collectProducerPaths();
+
+        final Path outputDir = generateConsumerRootDir();
+
+        final List<Path> readerFileNames = generateConsumerPaths(outputDir,writerFileNames);
 
         Iterator<Path> readerIt = readerFileNames.iterator();
         Iterator<Path> writerIt = writerFileNames.iterator();
@@ -162,24 +149,13 @@ public class Coordinator {
         logger.info("All done!");
     }
 
-    public void statefullBootstrap() {
+    public void stateFullBootstrap() {
 
-        final List<Path> writerFileNames = new ArrayList<Path>();
-        Path inputDir = Paths.get(producerInputDirectory);
-        RecuriveFileCollector walk= new RecuriveFileCollector();
-        try {
-            Files.walkFileTree(inputDir, walk);
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-        Path outputDir = Paths.get(consumerOutputDirectory);
-        int x = outputDir.getNameCount();
-        final List<Path> readerFileNames = walk.getResult();
-        for(Path path: readerFileNames) {
-            Path outputSubpath = path.subpath(x, path.getNameCount());
-            Path newOne = outputDir.resolve(outputSubpath);
-            readerFileNames.add(newOne);
-        }
+        final List<Path> writerFileNames = collectProducerPaths();
+
+        final Path outputDir = generateConsumerRootDir();
+
+        final List<Path> readerFileNames = generateConsumerPaths(outputDir,writerFileNames);
 
         Iterator<Path> readerIt = readerFileNames.iterator();
         Iterator<Path> writerIt = writerFileNames.iterator();
@@ -247,9 +223,62 @@ public class Coordinator {
         logger.info("All done!");
     }
 
-    class RecuriveFileCollector extends SimpleFileVisitor<Path> {
+    private static boolean isDirNonEmpty(final Path directory) throws IOException {
+        try(DirectoryStream<Path> dirStream = Files.newDirectoryStream(directory)) {
+            return dirStream.iterator().hasNext();
+        }
+    }
+
+    private List<Path>collectProducerPaths (){
+        final List<Path> writerFileNames = new ArrayList<Path>();
+        Path inputDir = Paths.get(producerInputDirectory);
+        RecursiveFileCollector walk= new RecursiveFileCollector();
+        try {
+            Files.walkFileTree(inputDir, walk);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return writerFileNames;
+    }
+
+    private Path generateConsumerRootDir() {
+        Path outputDir = Paths.get(consumerOutputDirectory+"-"+(new SimpleDateFormat("yyyy-MM-dd").format(new Date())));
+        int i=1;
+        try {
+            while (Files.exists(outputDir.getParent()) && isDirNonEmpty(outputDir)) {
+                outputDir = Paths.get(outputDir.toString() + "-" + (i < 10 ? "0" + i : i));
+                i++;
+            }
+            if(Files.notExists(outputDir)) {
+                Files.createDirectory(outputDir.getParent());
+            }
+        }catch(IOException ex){
+            ex.printStackTrace();
+        }
+        return outputDir;
+    }
+
+    private List<Path> generateConsumerPaths(Path outputDir,List<Path> producerInputPath){
+        int x = outputDir.getNameCount();
+        final List<Path> readerFileNames = new ArrayList<Path>();
+        readerFileNames.addAll(producerInputPath);
+        for(Path path: readerFileNames) {
+            Path outputSubPath = path.subpath(x, path.getNameCount());
+            Path newOne = outputDir.resolve(outputSubPath);
+            readerFileNames.add(newOne);
+            if (Files.notExists(newOne.getParent())) {
+                try {
+                    Files.createDirectory(newOne.getParent());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return readerFileNames;
+    }
+    class RecursiveFileCollector extends SimpleFileVisitor<Path> {
         private final List<Path> result = new ArrayList<Path>();
-        public RecuriveFileCollector() {
+        public RecursiveFileCollector() {
         }
         @Override
         public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
