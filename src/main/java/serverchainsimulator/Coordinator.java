@@ -3,15 +3,13 @@ package serverchainsimulator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.*;
 
 public class Coordinator {
 
@@ -81,11 +79,11 @@ public class Coordinator {
 
     public void statelessBootstrap() {
 
-        final List<Path> writerFileNames = collectProducerPaths();
+        final List<Path>  readerFileNames  = collectProducerPaths();
 
         final Path outputDir = generateConsumerRootDir();
 
-        final List<Path> readerFileNames = generateConsumerPaths(outputDir,writerFileNames);
+        final List<Path> writerFileNames = generateConsumerPaths(outputDir,readerFileNames);
 
         Iterator<Path> readerIt = readerFileNames.iterator();
         Iterator<Path> writerIt = writerFileNames.iterator();
@@ -151,11 +149,11 @@ public class Coordinator {
 
     public void stateFullBootstrap() {
 
-        final List<Path> writerFileNames = collectProducerPaths();
+        final List<Path>  readerFileNames  = collectProducerPaths();
 
         final Path outputDir = generateConsumerRootDir();
 
-        final List<Path> readerFileNames = generateConsumerPaths(outputDir,writerFileNames);
+        final List<Path> writerFileNames = generateConsumerPaths(outputDir,readerFileNames);
 
         Iterator<Path> readerIt = readerFileNames.iterator();
         Iterator<Path> writerIt = writerFileNames.iterator();
@@ -223,6 +221,53 @@ public class Coordinator {
         logger.info("All done!");
     }
 
+    public void remoteContiniusSend() {
+
+        final List<Path> readerFileNames = collectProducerPaths();
+
+        Iterator<Path> readerIt = readerFileNames.iterator();
+
+        CyclicBarrier turn = new CyclicBarrier(2);
+        final Queue<String> queue = new ConcurrentLinkedQueue<String>();
+        SingleConnectionProducer producer = new SingleConnectionProducer(turn, queue, new SimpleMessageGenerator(), producerHostIp, producerPort);
+
+        Thread producerThread = new Thread(producer);
+        producerThread.start();
+
+        String line;
+        while (readerIt.hasNext()) {
+            try (BufferedReader reader = Files.newBufferedReader(readerIt.next(), Charset.forName("UTF-8"))) {
+                while ((line = reader.readLine()) != null) {
+                    queue.add(line);
+                }
+                queue.add(""); //terminal string
+            } catch (IOException ex) {
+                logger.error("Producer cannot read data ", ex);
+            }
+            try {
+                try {
+                    turn.await();
+                } catch (BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
+            } catch (InterruptedException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+        }
+        producer.terminate();
+            try {
+                producerThread.join();
+            } catch (InterruptedException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+
+
+        logger.info("All done!");
+    }
+
+
     private static boolean isDirNonEmpty(final Path directory) throws IOException {
         try(DirectoryStream<Path> dirStream = Files.newDirectoryStream(directory)) {
             return dirStream.iterator().hasNext();
@@ -230,7 +275,6 @@ public class Coordinator {
     }
 
     private List<Path>collectProducerPaths (){
-        final List<Path> writerFileNames = new ArrayList<Path>();
         Path inputDir = Paths.get(producerInputDirectory);
         RecursiveFileCollector walk= new RecursiveFileCollector();
         try {
@@ -238,19 +282,19 @@ public class Coordinator {
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-        return writerFileNames;
+        return walk.getResult();
     }
 
     private Path generateConsumerRootDir() {
         Path outputDir = Paths.get(consumerOutputDirectory+"-"+(new SimpleDateFormat("yyyy-MM-dd").format(new Date())));
         int i=1;
         try {
-            while (Files.exists(outputDir.getParent()) && isDirNonEmpty(outputDir)) {
+            while (Files.exists(outputDir) && isDirNonEmpty(outputDir)) {
                 outputDir = Paths.get(outputDir.toString() + "-" + (i < 10 ? "0" + i : i));
                 i++;
             }
             if(Files.notExists(outputDir)) {
-                Files.createDirectory(outputDir.getParent());
+                Files.createDirectory(outputDir);
             }
         }catch(IOException ex){
             ex.printStackTrace();

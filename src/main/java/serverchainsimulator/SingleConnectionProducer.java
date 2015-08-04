@@ -1,6 +1,8 @@
 package serverchainsimulator;
 
-import java.io.BufferedReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -8,29 +10,29 @@ import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.concurrent.CountDownLatch;
+import java.util.Queue;
+import java.util.concurrent.*;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+public class SingleConnectionProducer implements Runnable {
 
-public class Producer implements Runnable {
-
-    private static final Logger logger = LoggerFactory.getLogger(Producer.class);
+    private static final Logger logger = LoggerFactory.getLogger(SingleConnectionProducer.class);
     final private MessageGenerator generator;
-    final private CountDownLatch done;
+    private volatile Boolean process;
     final private String host;
     final private int port;
-    Path path;
+    final private Queue<String> input;
+    final private CyclicBarrier turn;
+    public SingleConnectionProducer(CyclicBarrier turn, Queue<String> input, MessageGenerator messageGenerator, String host, int port) {
 
-    public Producer(CountDownLatch latch, Path readerPath, MessageGenerator messageGenerator, String host, int port) {
-        done = latch;
-        path = readerPath;
         generator = messageGenerator;
         this.port = port;
         this.host = host;
+        this.input = input;
+        this.turn = turn;
+    }
+
+    public void terminate() {
+        process = false;
     }
 
     public void run() {
@@ -45,18 +47,32 @@ public class Producer implements Runnable {
                     logger.info("Producer connected " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
                     String line;
                     ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
-                    try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
-                        while ((line = reader.readLine()) != null) {
-                            if(line.length()>0) {
+                    while(process) {
+                        boolean run = true;
+                        while (run) {
+
+                                line = input.remove();
+
+                            if (line != null && "".equals(line)) {
+                                //terminal
+                                run = false;
+                            } else if (line != null && line.length() > 0) {
                                 try {
                                     generator.write(line, buffer);
                                     buffer.flip();
                                     socketChannel.write(buffer);
                                     buffer.clear();
-                                }catch(BufferOverflowException ex){
+                                } catch (BufferOverflowException ex) {
                                     logger.error("Producer error", ex);
                                 }
                             }
+                        }
+                        try {
+                            turn.await();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        } catch (BrokenBarrierException e) {
+                            e.printStackTrace();
                         }
                     }
                 } catch (IOException ex) {
@@ -73,8 +89,8 @@ public class Producer implements Runnable {
         } catch (InterruptedException e) {
             logger.error(e.getMessage(), e);
         }
-        done.countDown();
-        logger.info("Producer is done! " + done.getCount());
+
+        logger.info("Producer is done! " );
     }
 
 }
