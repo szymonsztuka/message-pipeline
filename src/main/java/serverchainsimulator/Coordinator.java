@@ -27,7 +27,6 @@ public class Coordinator {
     private final String[] bootstrapProgramArguments;
     private final boolean restartServerAfterEachFile;
 
-
     /**
      * @param args path to configuration file
      */
@@ -36,15 +35,21 @@ public class Coordinator {
         if (args.length < 1) {
             throw new IllegalArgumentException();
         }
+
         final Coordinator coordinator = new Coordinator(args[0]);
         coordinator.run();
 
     }
 
-    final Properties configProp;
-
+    protected MessageReceiver getMessageReceiver() {
+        return new SimpleMessageReceiver();
+    }
+    protected MessageGenerator getMessageGenerator() {
+        return new SimpleMessageGenerator();
+    }
     public Coordinator(String propertiesPath) {
-        configProp = new Properties();
+        final Properties configProp = new Properties();
+
         InputStream in = null;
         try {
             in = new FileInputStream(propertiesPath);
@@ -59,27 +64,52 @@ public class Coordinator {
         producerInputDirectory = configProp.getProperty("inputDirectory");
         consumerOutputDirectory = configProp.getProperty("outputDirectory");
         producerPort = Integer.parseInt(configProp.getProperty("producerPort"));
-        consumerPort = Integer.parseInt(configProp.getProperty("consumerPort"));
+        consumerPort = configProp.getProperty("consumerPort")!=null?Integer.parseInt(configProp.getProperty("consumerPort")):null;
+        if(producerInputDirectory==null || producerPort==null) {
+            //requierd
+        }
+
+        if((consumerOutputDirectory==null || consumerPort==null) && (consumerOutputDirectory!=null || consumerPort!=null)) {
+            //impartial configuration
+        }
         bootstrapMainClass = configProp.getProperty("bootstrapMainClass");
         bootstrapClasspath = configProp.getProperty("bootstrapClasspath");
-        bootstrapJvmArguments = configProp.getProperty("bootstrapJvmArguments").split(" ");
-        bootstrapProgramArguments = configProp.getProperty("bootstrapProgramArguments").split(" ");
+        bootstrapJvmArguments = configProp.getProperty("bootstrapJvmArguments")!=null?configProp.getProperty("bootstrapJvmArguments").split(" "):null;
+        bootstrapProgramArguments =  configProp.getProperty("bootstrapProgramArguments")!=null?configProp.getProperty("bootstrapProgramArguments").split(" "):null;
+        if (bootstrapMainClass==null && bootstrapClasspath==null && bootstrapJvmArguments==null && bootstrapProgramArguments==null) {
+
+        } else if((bootstrapMainClass!=null || bootstrapClasspath!=null || bootstrapJvmArguments!=null || bootstrapProgramArguments!=null)
+                &&
+                (bootstrapMainClass==null || bootstrapClasspath==null || bootstrapJvmArguments==null || bootstrapProgramArguments==null)
+                ) {
+            //impartial configuration
+        }
         producerHostIp = configProp.getProperty("producerHostIp", "127.0.0.1");
         consumerHostIp = configProp.getProperty("consumerHostIp", "127.0.0.1");
         restartServerAfterEachFile = Boolean.parseBoolean(configProp.getProperty("restartServerAfterEachFile", "true"));
-    }
-    public void run() {
-        if(restartServerAfterEachFile) {
-            statelessBootstrap();
-        } else {
-            stateFullBootstrap();
-        }
 
+    }
+
+    public void run() {
+        if(bootstrapMainClass!=null && bootstrapClasspath!=null &&
+        bootstrapJvmArguments!=null && bootstrapProgramArguments!=null){ //managed
+            if(restartServerAfterEachFile) {
+                statelessBootstrap();
+            } else {
+                statefullBootstrap();
+            }
+        } else { //remote
+            if(consumerOutputDirectory!=null &&  consumerPort!=null){
+                remoteBootstrap();
+            } else {
+                remoteBootstrapSendingOnly();
+            }
+        }
     }
 
     public void statelessBootstrap() {
-
-        final List<Path>  readerFileNames  = collectProducerPaths();
+        logger.info("statelessBootstrap");
+        final List<Path> readerFileNames  = collectProducerPaths();
 
         final Path outputDir = generateConsumerRootDir();
 
@@ -89,9 +119,9 @@ public class Coordinator {
         Iterator<Path> writerIt = writerFileNames.iterator();
 
         while (readerIt.hasNext() && writerIt.hasNext()) {
-            CountDownLatch done = new CountDownLatch(1);
-            Producer producer = new Producer(done, readerIt.next(), new SimpleMessageGenerator(), producerHostIp, producerPort);
-            NonBlockingConsumer consumer = new NonBlockingConsumer(writerIt.next(), new SimpleMessageReceiver(), consumerHostIp, consumerPort);
+            CountDownLatch done = new CountDownLatch(2);
+            Producer producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerHostIp, producerPort);
+            NonBlockingConsumer consumer = new NonBlockingConsumer(writerIt.next(), getMessageReceiver(), consumerHostIp, consumerPort);
             Bootstrap bootstrap = new Bootstrap(done, bootstrapClasspath, bootstrapJvmArguments, bootstrapMainClass, bootstrapProgramArguments);
 
             Thread producerThread = new Thread(producer);
@@ -111,19 +141,16 @@ public class Coordinator {
                 e.printStackTrace();
             }
             producerThread.start();
-
-
-            try {
-                done.await();
-            } catch (InterruptedException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            }
             try {
                 producerThread.join();
             } catch (InterruptedException e1) {
                 // TODO Auto-generated catch block
                 e1.printStackTrace();
+            }
+            try {
+                Thread.sleep(1000 * 60);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
             logger.info("Terminating consumer!");
             consumer.terminate();
@@ -134,6 +161,9 @@ public class Coordinator {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
+
+            done.countDown();
+
             logger.info("Awaiting join bootsrap!");
             try {
                 bootstrapThread.join();
@@ -145,11 +175,13 @@ public class Coordinator {
         }
 
         logger.info("All done!");
+
     }
 
-    public void stateFullBootstrap() {
+    public void statefullBootstrap() {
 
-        final List<Path>  readerFileNames  = collectProducerPaths();
+        logger.info("statefullBootstrap");
+        final List<Path> readerFileNames  = collectProducerPaths();
 
         final Path outputDir = generateConsumerRootDir();
 
@@ -172,8 +204,9 @@ public class Coordinator {
 
         while (readerIt.hasNext() && writerIt.hasNext()) {
             CountDownLatch done = new CountDownLatch(1);
-            Producer producer = new Producer(done, readerIt.next(), new SimpleMessageGenerator(), producerHostIp, producerPort);
-            NonBlockingConsumer consumer = new NonBlockingConsumer(writerIt.next(), new SimpleMessageReceiver(), consumerHostIp, consumerPort);
+            Producer producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerHostIp, producerPort);
+            NonBlockingConsumer consumer = new NonBlockingConsumer(writerIt.next(), getMessageReceiver(), consumerHostIp, consumerPort);
+
 
             Thread producerThread = new Thread(producer);
             Thread consumerThread = new Thread(consumer);
@@ -229,7 +262,7 @@ public class Coordinator {
 
         CyclicBarrier turn = new CyclicBarrier(2);
         final Queue<String> queue = new ConcurrentLinkedQueue<String>();
-        SingleConnectionProducer producer = new SingleConnectionProducer(turn, queue, new SimpleMessageGenerator(), producerHostIp, producerPort);
+        SingleConnectionProducer producer = new SingleConnectionProducer(turn, queue, getMessageGenerator(), producerHostIp, producerPort);
 
         Thread producerThread = new Thread(producer);
         producerThread.start();
@@ -267,6 +300,90 @@ public class Coordinator {
         logger.info("All done!");
     }
 
+    public void remoteBootstrap() {
+        logger.info("remoteBootstrap");
+        final List<Path> readerFileNames  = collectProducerPaths();
+
+        final Path outputDir = generateConsumerRootDir();
+
+        final List<Path> writerFileNames = generateConsumerPaths(outputDir,readerFileNames);
+
+        Iterator<Path> readerIt = readerFileNames.iterator();
+        Iterator<Path> writerIt = writerFileNames.iterator();
+
+        while (readerIt.hasNext() && writerIt.hasNext()) {
+            CountDownLatch done = new CountDownLatch(1);
+            Producer producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerHostIp, producerPort);
+            NonBlockingConsumer consumer = new NonBlockingConsumer(writerIt.next(), getMessageReceiver(), consumerHostIp, consumerPort);
+
+
+            Thread producerThread = new Thread(producer);
+            Thread consumerThread = new Thread(consumer);
+            consumerThread.start();
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            producerThread.start();
+
+
+            try {
+                done.await();
+            } catch (InterruptedException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+            try {
+                producerThread.join();
+            } catch (InterruptedException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+            logger.info("Terminating consumer!");
+            consumer.terminate();
+            logger.info("Awaiting join consumer!");
+            try {
+                consumerThread.join();
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+
+
+        }
+        logger.info("All done!");
+    }
+
+    public void remoteBootstrapSendingOnly() {
+        logger.info("remoteBootstrapSendingOnly");
+        final List<Path> readerFileNames  = collectProducerPaths();
+        Iterator<Path> readerIt = readerFileNames.iterator();
+
+
+        while (readerIt.hasNext() ) {
+            CountDownLatch done = new CountDownLatch(1);
+            Producer producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerHostIp, producerPort);
+            Thread producerThread = new Thread(producer);
+
+            producerThread.start();
+
+            try {
+                done.await();
+            } catch (InterruptedException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+            try {
+                producerThread.join();
+            } catch (InterruptedException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+
+        }
+        logger.info("All done!");
+    }
 
     private static boolean isDirNonEmpty(final Path directory) throws IOException {
         try(DirectoryStream<Path> dirStream = Files.newDirectoryStream(directory)) {

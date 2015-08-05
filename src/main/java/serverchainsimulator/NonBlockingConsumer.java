@@ -27,6 +27,7 @@ public class NonBlockingConsumer implements Runnable {
     private final Path path;
     private final MessageReceiver receiver;
     final private String host;
+    private int readCount;
 
     public NonBlockingConsumer(Path writerPath, MessageReceiver messageReceiver, String host, int port) {
         path = writerPath;
@@ -80,6 +81,7 @@ public class NonBlockingConsumer implements Runnable {
                                             if (logger.isTraceEnabled()) {
                                                 logger.trace("Read " + line);
                                             }
+                                            readCount++;
                                             if (buffer.hasRemaining()) {
                                                 buffer.compact();
                                             } else {
@@ -103,5 +105,9 @@ public class NonBlockingConsumer implements Runnable {
         } catch (IOException ex) {
             logger.error("Consumer", ex);
         }
+    }
+
+    public int getReadCount(){
+        return readCount;
     }
 }
