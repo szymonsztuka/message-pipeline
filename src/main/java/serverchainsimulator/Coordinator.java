@@ -27,6 +27,11 @@ public class Coordinator {
     private final String[] bootstrapProgramArguments;
     private final boolean restartServerAfterEachFile;
 
+    private final List<String> consumersHostIp = new ArrayList<>(2);
+    private final List<Integer> consumersPort = new ArrayList<>(2);
+    private final List<String> consumersOutputDirectory= new ArrayList<>(2);
+    private final List<JvmInstanceConfiguration> jvmsConfigurations =  new ArrayList<>(2);
+
     /**
      * @param args path to configuration file
      */
@@ -36,7 +41,7 @@ public class Coordinator {
             throw new IllegalArgumentException();
         }
 
-        final Coordinator coordinator = new Coordinator(args[0]);
+        final Coordinator coordinator = new Coordinator(args[0], args[1]);
         coordinator.run();
 
     }
@@ -44,10 +49,12 @@ public class Coordinator {
     protected MessageReceiver getMessageReceiver() {
         return new SimpleMessageReceiver();
     }
+
     protected MessageGenerator getMessageGenerator() {
         return new SimpleMessageGenerator();
     }
-    public Coordinator(String propertiesPath) {
+
+    public Coordinator(String propertiesPath, String inputFile) {
         final Properties configProp = new Properties();
 
         InputStream in = null;
@@ -61,59 +68,86 @@ public class Coordinator {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        producerInputDirectory = configProp.getProperty("inputDirectory");
+        if (inputFile != null && inputFile.length() > 4) {
+            producerInputDirectory = inputFile;
+        } else {
+            producerInputDirectory = configProp.getProperty("inputDirectory");
+        }
         consumerOutputDirectory = configProp.getProperty("outputDirectory");
         producerPort = Integer.parseInt(configProp.getProperty("producerPort"));
-        consumerPort = configProp.getProperty("consumerPort")!=null?Integer.parseInt(configProp.getProperty("consumerPort")):null;
-        if(producerInputDirectory==null || producerPort==null) {
+        consumerPort = configProp.getProperty("consumerPort") != null ? Integer.parseInt(configProp.getProperty("consumerPort")) : null;
+
+        producerHostIp = configProp.getProperty("producerHostIp", "127.0.0.1");
+        consumerHostIp = configProp.getProperty("consumerHostIp", "127.0.0.1");
+
+        if(configProp.getProperty("outputDirectory2") != null
+                && configProp.getProperty("consumerPort2") !=null) {
+            consumersHostIp.add(consumerHostIp);
+            consumersPort.add(consumerPort);
+            consumersOutputDirectory.add(consumerOutputDirectory);
+
+            consumersHostIp.add(configProp.getProperty("consumerHostIp2", "127.0.0.1"));
+            consumersPort.add(Integer.parseInt(configProp.getProperty("consumerPort2")));
+            consumersOutputDirectory.add(configProp.getProperty("outputDirectory2"));
+        }
+
+
+
+
+
+
+
+        if (producerInputDirectory == null || producerPort == null) {
             //requierd
         }
 
-        if((consumerOutputDirectory==null || consumerPort==null) && (consumerOutputDirectory!=null || consumerPort!=null)) {
+        if ((consumerOutputDirectory == null || consumerPort == null) && (consumerOutputDirectory != null || consumerPort != null)) {
             //impartial configuration
         }
         bootstrapMainClass = configProp.getProperty("bootstrapMainClass");
         bootstrapClasspath = configProp.getProperty("bootstrapClasspath");
-        bootstrapJvmArguments = configProp.getProperty("bootstrapJvmArguments")!=null?configProp.getProperty("bootstrapJvmArguments").split(" "):null;
-        bootstrapProgramArguments =  configProp.getProperty("bootstrapProgramArguments")!=null?configProp.getProperty("bootstrapProgramArguments").split(" "):null;
-        if (bootstrapMainClass==null && bootstrapClasspath==null && bootstrapJvmArguments==null && bootstrapProgramArguments==null) {
+        bootstrapJvmArguments = configProp.getProperty("bootstrapJvmArguments") != null ? configProp.getProperty("bootstrapJvmArguments").split(" ") : null;
+        bootstrapProgramArguments = configProp.getProperty("bootstrapProgramArguments") != null ? configProp.getProperty("bootstrapProgramArguments").split(" ") : null;
+        if (bootstrapMainClass == null && bootstrapClasspath == null && bootstrapJvmArguments == null && bootstrapProgramArguments == null) {
 
-        } else if((bootstrapMainClass!=null || bootstrapClasspath!=null || bootstrapJvmArguments!=null || bootstrapProgramArguments!=null)
+        } else if ((bootstrapMainClass != null || bootstrapClasspath != null || bootstrapJvmArguments != null || bootstrapProgramArguments != null)
                 &&
-                (bootstrapMainClass==null || bootstrapClasspath==null || bootstrapJvmArguments==null || bootstrapProgramArguments==null)
+                (bootstrapMainClass == null || bootstrapClasspath == null || bootstrapJvmArguments == null || bootstrapProgramArguments == null)
                 ) {
             //impartial configuration
         }
-        producerHostIp = configProp.getProperty("producerHostIp", "127.0.0.1");
-        consumerHostIp = configProp.getProperty("consumerHostIp", "127.0.0.1");
         restartServerAfterEachFile = Boolean.parseBoolean(configProp.getProperty("restartServerAfterEachFile", "true"));
 
     }
 
     public void run() {
-        if(bootstrapMainClass!=null && bootstrapClasspath!=null &&
-        bootstrapJvmArguments!=null && bootstrapProgramArguments!=null){ //managed
-            if(restartServerAfterEachFile) {
-                statelessBootstrap();
+        if (bootstrapMainClass != null && bootstrapClasspath != null &&
+                bootstrapJvmArguments != null && bootstrapProgramArguments != null) { //managed
+            if (restartServerAfterEachFile) {
+                if(consumersOutputDirectory.size() > 1) {
+                    multiStatelessBootstrap();
+                }else {
+                    statelessBootstrap();
+                }
             } else {
                 statefullBootstrap();
             }
         } else { //remote
-            if(consumerOutputDirectory!=null &&  consumerPort!=null){
+            if (consumerOutputDirectory != null && consumerPort != null) {
                 remoteBootstrap();
             } else {
-                remoteBootstrapSendingOnly();
+                sendingOnly();
             }
         }
     }
 
     public void statelessBootstrap() {
         logger.info("statelessBootstrap");
-        final List<Path> readerFileNames  = collectProducerPaths();
+        final List<Path> readerFileNames = collectProducerPaths(producerInputDirectory);
 
-        final Path outputDir = generateConsumerRootDir();
+        final Path outputDir = generateConsumerRootDir(consumerOutputDirectory);
 
-        final List<Path> writerFileNames = generateConsumerPaths(outputDir,readerFileNames);
+        final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
 
         Iterator<Path> readerIt = readerFileNames.iterator();
         Iterator<Path> writerIt = writerFileNames.iterator();
@@ -178,14 +212,119 @@ public class Coordinator {
 
     }
 
+    public void multiStatelessBootstrap() {
+        logger.info("multiStatelessBootstrap");
+        //final int consumersNumber = 2;
+        //final List<Path> consumersDirs = new ArrayList<>(2);
+        final List<List<Path>> writersFileNames = new ArrayList<>(consumersOutputDirectory.size());
+
+        final List<Path> readerFileNames = collectProducerPaths(producerInputDirectory);
+        for(String x: consumersOutputDirectory ) {
+            final Path outputDir = generateConsumerRootDir(x);//consumerOutputDirectory);
+            //consumersDirs.add(outputDir);
+            final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
+            writersFileNames.add(writerFileNames);
+        }
+
+        Iterator<Path> readerIt = readerFileNames.iterator();
+        //Iterator<Path> writerIt = writerFileNames.iterator();
+        //Iterator<List<Path>> writersIt = writersFileNames.iterator();
+        int i= 0;
+        while (readerIt.hasNext() ) {
+            CountDownLatch done = new CountDownLatch(1 + writersFileNames.size());
+            Producer producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerHostIp, producerPort);
+            List<NonBlockingConsumer> consumers = new ArrayList<>();
+            int j = 0;
+            for(List<Path> x: writersFileNames){
+                NonBlockingConsumer consumer = new NonBlockingConsumer(x.get(i), getMessageReceiver(),
+                        consumersHostIp.get(j),
+                        consumersPort.get(j));
+                j++;
+                consumers.add(consumer);
+            }
+            i++;
+            List<Bootstrap> jvms = new ArrayList<>(jvmsConfigurations.size());
+            List<Thread> jvmThreads = new ArrayList<>(jvmsConfigurations.size());
+            for(JvmInstanceConfiguration x: jvmsConfigurations) {
+                Bootstrap bootstrap = new Bootstrap(done, bootstrapClasspath, bootstrapJvmArguments, bootstrapMainClass, bootstrapProgramArguments);
+                jvms.add(bootstrap);
+                Thread bootstrapThread = new Thread(bootstrap);
+                jvmThreads.add(bootstrapThread);
+            }
+            Thread producerThread = new Thread(producer);
+            List<Thread> consumersThread = new ArrayList<>();
+            for(NonBlockingConsumer c: consumers) {
+                Thread consumerThread = new Thread(c);
+                consumersThread.add(consumerThread);
+            }
+            for(Thread c: jvmThreads) {
+                c.start();
+            }
+
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            for(Thread c: consumersThread) {
+                c.start();
+            }
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            producerThread.start();
+            try {
+                producerThread.join();
+            } catch (InterruptedException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+            try {
+                Thread.sleep(1000 * 60);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            logger.info("Terminating consumer!");
+            for(NonBlockingConsumer c: consumers) {
+                c.terminate();
+            }
+            logger.info("Awaiting join consumer!");
+            try {
+                for(Thread c: consumersThread) {
+                    c.join();
+                }
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+
+            done.countDown();
+
+            logger.info("Awaiting join bootsrap!");
+            try {
+                for(Thread c: jvmThreads) {
+                    c.join();
+                }
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+
+        }
+
+        logger.info("All done!");
+
+    }
     public void statefullBootstrap() {
 
         logger.info("statefullBootstrap");
-        final List<Path> readerFileNames  = collectProducerPaths();
+        final List<Path> readerFileNames = collectProducerPaths(producerInputDirectory);
 
-        final Path outputDir = generateConsumerRootDir();
+        final Path outputDir = generateConsumerRootDir(consumerOutputDirectory);
 
-        final List<Path> writerFileNames = generateConsumerPaths(outputDir,readerFileNames);
+        final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
 
         Iterator<Path> readerIt = readerFileNames.iterator();
         Iterator<Path> writerIt = writerFileNames.iterator();
@@ -256,7 +395,7 @@ public class Coordinator {
 
     public void remoteContiniusSend() {
 
-        final List<Path> readerFileNames = collectProducerPaths();
+        final List<Path> readerFileNames = collectProducerPaths(producerInputDirectory);
 
         Iterator<Path> readerIt = readerFileNames.iterator();
 
@@ -289,12 +428,12 @@ public class Coordinator {
             }
         }
         producer.terminate();
-            try {
-                producerThread.join();
-            } catch (InterruptedException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            }
+        try {
+            producerThread.join();
+        } catch (InterruptedException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
 
 
         logger.info("All done!");
@@ -302,11 +441,11 @@ public class Coordinator {
 
     public void remoteBootstrap() {
         logger.info("remoteBootstrap");
-        final List<Path> readerFileNames  = collectProducerPaths();
+        final List<Path> readerFileNames = collectProducerPaths(producerInputDirectory);
 
-        final Path outputDir = generateConsumerRootDir();
+        final Path outputDir = generateConsumerRootDir(consumerOutputDirectory);
 
-        final List<Path> writerFileNames = generateConsumerPaths(outputDir,readerFileNames);
+        final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
 
         Iterator<Path> readerIt = readerFileNames.iterator();
         Iterator<Path> writerIt = writerFileNames.iterator();
@@ -355,13 +494,13 @@ public class Coordinator {
         logger.info("All done!");
     }
 
-    public void remoteBootstrapSendingOnly() {
-        logger.info("remoteBootstrapSendingOnly");
-        final List<Path> readerFileNames  = collectProducerPaths();
+    public void sendingOnly() {
+        logger.info("sendingOnly");
+        final List<Path> readerFileNames = collectProducerPaths(producerInputDirectory);
         Iterator<Path> readerIt = readerFileNames.iterator();
 
-
-        while (readerIt.hasNext() ) {
+        while(readerIt.hasNext())
+        {
             CountDownLatch done = new CountDownLatch(1);
             Producer producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerHostIp, producerPort);
             Thread producerThread = new Thread(producer);
@@ -369,18 +508,11 @@ public class Coordinator {
             producerThread.start();
 
             try {
-                done.await();
-            } catch (InterruptedException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            }
-            try {
                 producerThread.join();
             } catch (InterruptedException e1) {
                 // TODO Auto-generated catch block
                 e1.printStackTrace();
             }
-
         }
         logger.info("All done!");
     }
@@ -391,23 +523,37 @@ public class Coordinator {
         }
     }
 
-    private List<Path>collectProducerPaths (){
-        Path inputDir = Paths.get(producerInputDirectory);
-        RecursiveFileCollector walk= new RecursiveFileCollector();
-        try {
-            Files.walkFileTree(inputDir, walk);
-        } catch (IOException ex) {
-            ex.printStackTrace();
+    private List<Path>collectProducerPaths (String dirOrFilePath){
+        Path inputDir = Paths.get(dirOrFilePath);
+
+        if(Files.isDirectory(inputDir,LinkOption.NOFOLLOW_LINKS)) {
+            RecursiveFileCollector walk= new RecursiveFileCollector();
+            try {
+                Files.walkFileTree(inputDir, walk);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            return walk.getResult();
+        } else {
+            List<Path>  singleFile = new ArrayList<Path>();
+            singleFile.add(inputDir);
+            return singleFile;
         }
-        return walk.getResult();
     }
 
-    private Path generateConsumerRootDir() {
-        Path outputDir = Paths.get(consumerOutputDirectory+"-"+(new SimpleDateFormat("yyyy-MM-dd").format(new Date())));
+
+    private Path generateConsumerRootDir(String dirName) {
+        Path outputDir = Paths.get(dirName +"-"+(new SimpleDateFormat("yyyy-MM-dd").format(new Date())));
         int i=1;
         try {
             while (Files.exists(outputDir) && isDirNonEmpty(outputDir)) {
-                outputDir = Paths.get(outputDir.toString() + "-" + (i < 10 ? "0" + i : i));
+                String candidate = outputDir.toString();
+                if(i>1){
+                    outputDir = Paths.get(candidate.substring(0,candidate.length()-2)
+                            + "-" + (i < 10 ? "0" + i : i));
+                } else{
+                    outputDir = Paths.get(candidate + "-" + (i < 10 ? "0" + i : i));
+                }
                 i++;
             }
             if(Files.notExists(outputDir)) {
