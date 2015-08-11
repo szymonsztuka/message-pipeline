@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -22,18 +23,18 @@ import java.util.Set;
  */
 public class NonBlockingConsumer implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(NonBlockingConsumer.class);
-    private int port;
+    
+    public final InetSocketAddress adress;
     volatile private boolean process = true;
     private final Path path;
     private final MessageReceiver receiver;
-    final private String host;
+    
     private int readCount;
 
-    public NonBlockingConsumer(Path writerPath, MessageReceiver messageReceiver, String host, int port) {
+    public NonBlockingConsumer(Path writerPath, MessageReceiver messageReceiver, InetSocketAddress adress) {
         path = writerPath;
         receiver = messageReceiver;
-        this.port = port;
-        this.host = host;
+        this.adress = adress;
     }
 
     public void terminate() {
@@ -46,7 +47,7 @@ public class NonBlockingConsumer implements Runnable {
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
 
-        logger.info("Consumer opening, path " + path);
+        logger.info("Consumer opening, path " + path +" " +adress);
 
 
         try (Selector selector = Selector.open();
@@ -57,7 +58,7 @@ public class NonBlockingConsumer implements Runnable {
                 socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, 128 * 1024);
                 socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
                 socketChannel.register(selector, SelectionKey.OP_CONNECT);
-                socketChannel.connect(new java.net.InetSocketAddress(host, port));
+                socketChannel.connect(adress);
                 logger.info("Consumer: " + socketChannel.getLocalAddress());
                 while (selector.select(1000) > 0) {
                     Set keys = selector.selectedKeys();

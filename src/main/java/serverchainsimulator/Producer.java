@@ -21,31 +21,30 @@ public class Producer implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(Producer.class);
     final private MessageGenerator generator;
     final private CountDownLatch done;
-    final private String host;
-    final private int port;
+    final private InetSocketAddress address;
     Path path;
 
-    public Producer(CountDownLatch latch, Path readerPath, MessageGenerator messageGenerator, String host, int port) {
+    public Producer(CountDownLatch latch, Path readerPath, MessageGenerator messageGenerator, InetSocketAddress address) {
         done = latch;
         path = readerPath;
         generator = messageGenerator;
-        this.port = port;
-        this.host = host;
+        this.address = address;
     }
 
     public void run() {
-
-        try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) {
-            if (serverSocketChannel.isOpen()) {
+    	logger.info("Producer opening");
+        try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) { logger.info("Producer open");
+            if (serverSocketChannel.isOpen()) {  logger.info("Producer is open");
                 serverSocketChannel.configureBlocking(true);
                 serverSocketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
                 serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-                serverSocketChannel.bind(new InetSocketAddress(host, port));
-                try (SocketChannel socketChannel = serverSocketChannel.accept()) {
+                serverSocketChannel.bind(address); logger.info("Producer accepting on " + address.toString());
+                try (SocketChannel socketChannel = serverSocketChannel.accept()) {  
                     logger.info("Producer connected " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
                     String line;
                     ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
                     try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
+                    	  logger.info("Producer sending " + path);
                         while ((line = reader.readLine()) != null) {
                             if(line.length()>0) {
                                 try {
