@@ -2,21 +2,23 @@
 package serverchainsimulator;
 
 import com.jcraft.jsch.*;
+
 import java.io.*;
 
 public class ScpFrom{
+
 
     public static void get(String user, String host, String password, String localDestFile, String remoteSrcFile ){
 
         FileOutputStream fos = null;
         try {
-          JSch jsch = new JSch();
-            Session session=jsch.getSession(user, host, 22);
-
-            // username and password will be given via UserInfo interface.
-            UserInfo ui = new MyUserInfo(password);
-            session.setUserInfo(ui);
-            session.connect();
+        	JSch.setConfig("StrictHostKeyChecking", "no");		 
+			JSch jsch = new JSch();
+			Session session = jsch.getSession(user, host,22);
+			session.setPassword(password);
+	   
+	      session.connect();
+	      System.out.println("Connected");
 
             // exec 'scp -f rfile' remotely
             String command = "scp -f "+remoteSrcFile;
@@ -127,22 +129,5 @@ public class ScpFrom{
         return b;
     }
 
-    public static class MyUserInfo implements UserInfo{
-        String passwd;
-        public MyUserInfo (String password) {
-            this.passwd = password;
-        }
-        public String getPassword(){ return passwd; }
-        @Override
-        public boolean promptYesNo(String str){   return true;    }
-        @Override
-        public String getPassphrase(){ return null; }
-        @Override
-        public boolean promptPassphrase(String message){ return true; }
-        @Override
-        public boolean promptPassword(String message){     return true;      }
-        @Override
-        public void showMessage(String message){
-        }
-    }
+    
 }

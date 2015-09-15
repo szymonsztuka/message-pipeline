@@ -3,5 +3,5 @@ package serverchainsimulator;
 import java.nio.ByteBuffer;
 
 public interface MessageGenerator {
-    public void write(final String input, final ByteBuffer output);
+    public boolean write(final String input, final ByteBuffer output, boolean sendAtTimestamps);
 }

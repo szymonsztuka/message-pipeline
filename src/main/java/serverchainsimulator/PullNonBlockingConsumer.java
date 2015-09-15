@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -21,17 +22,17 @@ import java.util.Set;
 /**
  *
  */
-public class NonBlockingConsumer implements Runnable {
-    private static final Logger logger = LoggerFactory.getLogger(NonBlockingConsumer.class);
+public class PullNonBlockingConsumer implements Runnable {
+    private static final Logger logger = LoggerFactory.getLogger(PullNonBlockingConsumer.class);
     
     public final InetSocketAddress adress;
     volatile private boolean process = true;
     private final Path path;
-    private final MessageReceiver receiver;
+    private final PullMessageReceiver receiver;
     
     private int readCount;
 
-    public NonBlockingConsumer(Path writerPath, MessageReceiver messageReceiver, InetSocketAddress adress) {
+    public PullNonBlockingConsumer(Path writerPath, PullMessageReceiver messageReceiver, InetSocketAddress adress) {
         path = writerPath;
         receiver = messageReceiver;
         this.adress = adress;
@@ -74,25 +75,27 @@ public class NonBlockingConsumer implements Runnable {
                                 }
                                 logger.info("Consumer connected " + path);
                                 try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("UTF-8"), StandardOpenOption.CREATE)) {
-                                	long x = 0; long y =0;
-                                	logger.info("awaiting 0 reads  " + x +" 1 reads "+ y);
-                                	
+                                	boolean firstMessage  = true;
+                                	ByteArrayOutputStream baos = new ByteArrayOutputStream();
                                     while (keySocketChannel.read(buffer) != -1) {
-                                    	// if ( ((x+1) % 100000 ==0) || ((y+1) % 100000 == 0) ) {
-                                    	//	 logger.info("0 reads  " + x +" 1 reads "+ y);
-                                    	// }
                                         if (buffer.position() > 0) {
-                                        	y++;
                                             buffer.flip();
-                                            String line = receiver.read(buffer);
-                                            writer.write(line);
-                                            writer.write("\n");
-                                            if (logger.isTraceEnabled()) {
-                                                logger.trace("Read " + line);
-                                            } else { 
-                                            	logger.info("Read " + line);
+                                            boolean more = receiver.read(buffer, firstMessage, baos );
+                                            logger.info(""+more);
+                                            if(!more) {
+                                            	String str = receiver.get(baos);
+                                            	writer.write(str);
+                                            	writer.write("\n");
+                                            	logger.info("-> " + str);
+                                            	if (logger.isTraceEnabled()) {
+                                            		logger.trace("Read " +str);
+                                            	}
+                                            	readCount++;
+                                            	baos.reset();
+                                            	firstMessage = true;
+                                            } else {
+                                            	firstMessage = false;
                                             }
-                                            readCount++;
                                             if (buffer.hasRemaining()) {
                                                 buffer.compact();
                                             } else {
@@ -101,8 +104,6 @@ public class NonBlockingConsumer implements Runnable {
                                         } else if (!process) {
                                             logger.info("Consumer says good bye;");
                                             return;
-                                        } else {
-                                        	x++;
                                         }
                                     }
                                 }
