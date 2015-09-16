@@ -261,9 +261,9 @@ public class Coordinator {
         while (readerIt.hasNext() && writerIt.hasNext()) {
             CountDownLatch done = new CountDownLatch(2);
             Producer producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerConfig.adress, Boolean.FALSE);
-            PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.adress);
+            //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.adress);
            
-           //NonBlockingConsumer consumer = new NonBlockingConsumer(writerIt.next(), getMessageReceiver(), consumerConfig.adress);
+           NonBlockingConsumer consumer = new NonBlockingConsumer(writerIt.next(), getMessageReceiver(), consumerConfig.adress);
            
             Thread producerThread = new Thread(producer);
             Thread consumerThread = new Thread(consumer);
@@ -798,7 +798,7 @@ public class Coordinator {
             readerFileNames.add(newOne);
             if (Files.notExists(newOne.getParent())) {
                 try {
-                    Files.createDirectory(newOne.getParent());
+                    Files.createDirectories(newOne.getParent());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

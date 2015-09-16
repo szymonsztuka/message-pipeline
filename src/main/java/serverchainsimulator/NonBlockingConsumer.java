@@ -73,6 +73,9 @@ public class NonBlockingConsumer implements Runnable {
                                     keySocketChannel.finishConnect();
                                 }
                                 logger.info("Consumer connected " + path);
+                                if (Files.notExists(path.getParent())) {
+                                    Files.createDirectories(path.getParent());
+                                }
                                 try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("UTF-8"), StandardOpenOption.CREATE)) {
                                 	long x = 0; long y =0;
                                 	logger.info("awaiting 0 reads  " + x +" 1 reads "+ y);

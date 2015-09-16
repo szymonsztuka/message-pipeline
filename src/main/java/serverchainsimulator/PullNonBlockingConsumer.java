@@ -74,6 +74,9 @@ public class PullNonBlockingConsumer implements Runnable {
                                     keySocketChannel.finishConnect();
                                 }
                                 logger.info("Consumer connected " + path);
+                                if (Files.notExists(path.getParent())) {
+                                    Files.createDirectories(path.getParent());
+                                }
                                 try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("UTF-8"), StandardOpenOption.CREATE)) {
                                 	boolean firstMessage  = true;
                                 	ByteArrayOutputStream baos = new ByteArrayOutputStream();
