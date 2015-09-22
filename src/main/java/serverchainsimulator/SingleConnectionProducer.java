@@ -58,7 +58,7 @@ public class SingleConnectionProducer implements Runnable {
                                 run = false;
                             } else if (line != null && line.length() > 0) {
                                 try {
-                                    generator.write(line, buffer);
+                                    generator.write(line, buffer, false);
                                     buffer.flip();
                                     socketChannel.write(buffer);
                                     buffer.clear();

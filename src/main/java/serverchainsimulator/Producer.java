@@ -22,13 +22,15 @@ public class Producer implements Runnable {
     final private MessageGenerator generator;
     final private CountDownLatch done;
     final private InetSocketAddress address;
+    final private boolean sendAtTimestamps;
     Path path;
 
-    public Producer(CountDownLatch latch, Path readerPath, MessageGenerator messageGenerator, InetSocketAddress address) {
+    public Producer(CountDownLatch latch, Path readerPath, MessageGenerator messageGenerator, InetSocketAddress address, boolean sendAtTimestamps) {
         done = latch;
         path = readerPath;
         generator = messageGenerator;
         this.address = address;
+        this.sendAtTimestamps = sendAtTimestamps;
     }
 
     public void run() {
@@ -48,10 +50,11 @@ public class Producer implements Runnable {
                         while ((line = reader.readLine()) != null) {
                             if(line.length()>0) {
                                 try {
-                                    generator.write(line, buffer);
+                                    if(generator.write(line, buffer, sendAtTimestamps)) {
                                     buffer.flip();
                                     socketChannel.write(buffer);
                                     buffer.clear();
+                                    }
                                 }catch(BufferOverflowException ex){
                                     logger.error("Producer error", ex);
                                 }
