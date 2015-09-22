@@ -27,13 +27,14 @@ public class ProducerPullInPushOut implements Runnable {
     final private InetSocketAddress address;
     final private CyclicBarrier barrier;
     List<Path> paths;
-
-    public ProducerPullInPushOut(CountDownLatch latch, List<Path> readerPaths, MessageGenerator messageGenerator, InetSocketAddress address, CyclicBarrier barrier) {
+    final private NonBlockingConsumerEagerIn otherThread;
+    public ProducerPullInPushOut(CountDownLatch latch, List<Path> readerPaths, MessageGenerator messageGenerator, InetSocketAddress address, CyclicBarrier barrier, NonBlockingConsumerEagerIn otherThread) {
         done = latch;
         paths = readerPaths;
         generator = messageGenerator;
         this.address = address;
         this.barrier = barrier;
+        this.otherThread = otherThread;
     }
 
     public void run() {
@@ -48,31 +49,36 @@ public class ProducerPullInPushOut implements Runnable {
                     logger.info("Producer connected " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
                     String line;
                     ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
-
                     for(Path path : paths)
                     {
-                    try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
-                        logger.info("Producer sending " + path);
-                        while ((line = reader.readLine()) != null) {
-                            if (line.length() > 0) {
-                                try {
-                                    generator.write(line, buffer);
-                                    buffer.flip();
-                                    socketChannel.write(buffer);
-                                    buffer.clear();
-                                } catch (BufferOverflowException ex) {
-                                    logger.error("Producer error", ex);
-                                }
-                            }
-                        }
                         try {
-                            barrier.await();
+                            Thread.sleep(1000 * 60);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
-                        } catch (BrokenBarrierException e) {
-                            e.printStackTrace();
                         }
-                    }
+                        try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
+                            logger.info("Producer sending " + path);
+                            while ((line = reader.readLine()) != null) {
+                                if (line.length() > 0) {
+                                    try {
+                                        generator.write(line, buffer, Boolean.FALSE);
+                                        buffer.flip();
+                                        socketChannel.write(buffer);
+                                        buffer.clear();
+                                    } catch (BufferOverflowException ex) {
+                                        logger.error("Producer error", ex);
+                                    }
+                                }
+                            }
+                            try {
+                                otherThread.signalOfBatch();
+                                barrier.await();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            } catch (BrokenBarrierException e) {
+                                e.printStackTrace();
+                            }
+                        }
                         //end of this file
                     }
                 } catch (IOException ex) {

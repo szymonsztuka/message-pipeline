@@ -255,25 +255,20 @@ public class Coordinator {
         	System.out.println("writer " + x);
         }
         
-        Iterator<Path> readerIt = readerFileNames.iterator();
-        Iterator<Path> writerIt = writerFileNames.iterator();
-
-        while (readerIt.hasNext() && writerIt.hasNext()) {
+        //Iterator<Path> readerIt = readerFileNames.iterator();
+        //Iterator<Path> writerIt = writerFileNames.iterator();
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        //while (readerIt.hasNext() && writerIt.hasNext()) {
             CountDownLatch done = new CountDownLatch(2);
-            Producer producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerConfig.adress, Boolean.FALSE);
+        NonBlockingConsumerEagerIn consumer = new NonBlockingConsumerEagerIn(writerFileNames, getMessageReceiver(), consumerConfig.adress, barrier);
+
+        ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumer);
             //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.adress);
            
-           NonBlockingConsumer consumer = new NonBlockingConsumer(writerIt.next(), getMessageReceiver(), consumerConfig.adress);
-           
+
             Thread producerThread = new Thread(producer);
             Thread consumerThread = new Thread(consumer);
 
-
-            try {
-                Thread.sleep(10000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
             consumerThread.start();
             try {
                 Thread.sleep(1000);
@@ -292,8 +287,8 @@ public class Coordinator {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            logger.info("Terminating consumer!");
-            consumer.terminate();
+            //logger.info("Terminating consumer!");
+            //consumer.terminate();
             logger.info("Awaiting join consumer!");
             try {
                 consumerThread.join();
@@ -306,7 +301,7 @@ public class Coordinator {
 
         
 
-        }
+        //}
         logger.info("All done!");
     }
     
