@@ -44,6 +44,7 @@ public class NonBlockingConsumerEagerIn implements Runnable {
 
     public void signalOfBatch() {
         process = false;
+        logger.info("process set to "+ process);
     }
 
     @SuppressWarnings("rawtypes")
@@ -52,7 +53,7 @@ public class NonBlockingConsumerEagerIn implements Runnable {
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
 
-        logger.info("Consumer opening, path " + paths +" " +adress);
+        logger.info("Consumer opening, path  " +adress);
 
 
         try (Selector selector = Selector.open();
@@ -92,6 +93,7 @@ public class NonBlockingConsumerEagerIn implements Runnable {
                                             // if ( ((x+1) % 100000 ==0) || ((y+1) % 100000 == 0) ) {
                                             //	 logger.info("0 reads  " + x +" 1 reads "+ y);
                                             // }
+                                            //logger.info("process "+ process);
                                             if (buffer.position() > 0) {
                                                 y++;
                                                 buffer.flip();
@@ -110,7 +112,7 @@ public class NonBlockingConsumerEagerIn implements Runnable {
                                                     buffer.clear();
                                                 }
                                             } else if (!process) {
-                                                //logger.info("Consumer says good bye;");
+                                                logger.info("Consumer says good bye;");
                                                 //return;
                                                 break;
                                             } else {

@@ -251,9 +251,9 @@ public class Coordinator {
         final Path outputDir = generateConsumerRootDir3(consumerConfig.directory);
         System.out.println("output " +outputDir);
         final List<Path> writerFileNames = generateConsumerPaths3(outputDir, readerFileNames, producerConfig.directory);
-        for(Path x: writerFileNames) {
-        	System.out.println("writer " + x);
-        }
+        //for(Path x: writerFileNames) {
+        //	System.out.println("writer " + x);
+        //}
         
         //Iterator<Path> readerIt = readerFileNames.iterator();
         //Iterator<Path> writerIt = writerFileNames.iterator();
@@ -283,7 +283,7 @@ public class Coordinator {
                 e1.printStackTrace();
             }
             try {
-                Thread.sleep(1000 * 60);
+                Thread.sleep(1000 * 10);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

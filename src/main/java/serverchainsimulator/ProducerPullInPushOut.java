@@ -52,7 +52,7 @@ public class ProducerPullInPushOut implements Runnable {
                     for(Path path : paths)
                     {
                         try {
-                            Thread.sleep(1000 * 60);
+                            Thread.sleep(1000 * 3);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
@@ -69,6 +69,11 @@ public class ProducerPullInPushOut implements Runnable {
                                         logger.error("Producer error", ex);
                                     }
                                 }
+                            }
+                            try {
+                                Thread.sleep(1000 * 3);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
                             }
                             try {
                                 otherThread.signalOfBatch();
