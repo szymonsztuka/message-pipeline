@@ -32,14 +32,15 @@ public class NonBlockingConsumerEagerIn implements Runnable {
     private final List<Path> paths;
     private final MessageReceiver receiver;
     final private CyclicBarrier barrier;
-
+    RemoteShellScripTask otherThread;
     private int readCount;
 
-    public NonBlockingConsumerEagerIn(List<Path> writerPaths, MessageReceiver messageReceiver, InetSocketAddress adress, CyclicBarrier barrier) {
+    public NonBlockingConsumerEagerIn(List<Path> writerPaths, MessageReceiver messageReceiver, InetSocketAddress adress, CyclicBarrier barrier,RemoteShellScripTask otherThread) {
         paths = writerPaths;
         receiver = messageReceiver;
         this.adress = adress;
         this.barrier = barrier;
+        this.otherThread = otherThread;
     }
 
     public void signalOfBatch() {
@@ -121,6 +122,9 @@ public class NonBlockingConsumerEagerIn implements Runnable {
                                         }
                                     }
                                     try {
+                                        if(otherThread!=null) {
+                                            otherThread.signalBeginOfBatch();
+                                        }
                                         barrier.await();
                                         process = true;
                                     } catch (InterruptedException e) {

@@ -255,12 +255,12 @@ public class Coordinator {
         //	System.out.println("writer " + x);
         //}
         
-        //Iterator<Path> readerIt = readerFileNames.iterator();
+        //Iterator<Path> readerIt = readerFil for (Path path: producerInputPath) {eNames.iterator();
         //Iterator<Path> writerIt = writerFileNames.iterator();
         CyclicBarrier barrier = new CyclicBarrier(2);
         //while (readerIt.hasNext() && writerIt.hasNext()) {
             CountDownLatch done = new CountDownLatch(2);
-        NonBlockingConsumerEagerIn consumer = new NonBlockingConsumerEagerIn(writerFileNames, getMessageReceiver(), consumerConfig.adress, barrier);
+        NonBlockingConsumerEagerIn consumer = new NonBlockingConsumerEagerIn(writerFileNames, getMessageReceiver(), consumerConfig.adress, barrier,null);
 
         ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumer);
             //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.adress);
@@ -304,7 +304,86 @@ public class Coordinator {
         //}
         logger.info("All done!");
     }
-    
+
+    public void senderTwoReceiver(NetworkEndConfiguration producerConfig, NetworkEndConfiguration consumerConfig, NetworkEndConfiguration consumer2Config) {
+        logger.info("senderReceiver");
+        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory);
+        for(Path x: readerFileNames) {
+            System.out.println("reader " + x);
+        }
+       /* final Path outputDir = generateConsumerRootDir(producerConfig.directory);
+        System.out.println("writer root " + outputDir);
+        final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
+        for(Path x: writerFileNames) {
+        	System.out.println("writer " + x);
+        }*/
+        /*final Path outputDir = generateConsumerRootDir2(producerConfig.directory, consumerConfig.directory);
+        System.out.println("writer root " + outputDir);
+        final List<Path> writerFileNames = generateConsumerPaths2(producerConfig.directory, outputDir, readerFileNames);
+        for(Path x: writerFileNames) {
+        	System.out.println("writer " + x);
+        }*/
+        final Path outputDir = generateConsumerRootDir3(consumerConfig.directory);
+        System.out.println("output " +outputDir);
+        final List<Path> writerFileNames = generateConsumerPaths3(outputDir, readerFileNames, producerConfig.directory);
+        //for(Path x: writerFileNames) {
+        //	System.out.println("writer " + x);
+        //}
+        List<String> names = new ArrayList();
+        for (Path path: readerFileNames) {
+            names.add(path.getFileName().toString());
+        }
+
+        //Iterator<Path> readerIt = readerFileNames.iterator();
+        //Iterator<Path> writerIt = writerFileNames.iterator();
+        CyclicBarrier barrier = new CyclicBarrier(3);
+        //while (readerIt.hasNext() && writerIt.hasNext()) {
+        CountDownLatch done = new CountDownLatch(3);
+        RemoteShellScripTask consumer2 = new RemoteShellScripTask(consumer2Config.user, consumer2Config.host, consumer2Config.password, consumer2Config.sudo_pass, consumer2Config.command,  names,  barrier);
+        NonBlockingConsumerEagerIn consumer = new NonBlockingConsumerEagerIn(writerFileNames, getMessageReceiver(), consumerConfig.adress, barrier, consumer2);
+
+        ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumer);
+        //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.adress);
+
+
+        Thread producerThread = new Thread(producer);
+        Thread consumerThread = new Thread(consumer);
+
+        consumerThread.start();
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        producerThread.start();
+        try {
+            producerThread.join();
+        } catch (InterruptedException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
+        try {
+            Thread.sleep(1000 * 10);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        //logger.info("Terminating consumer!");
+        //consumer.terminate();
+        logger.info("Awaiting join consumer!");
+        try {
+            consumerThread.join();
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        done.countDown();
+
+
+
+        //}
+        logger.info("All done!");
+    }
 /*
     public void multiStatelessBootstrap(List<NetworkEndConfiguration> producerConfigs, List<JvmInstanceConfiguration> serverConfigs, List<NetworkEndConfiguration> consumerConfigs) {
 
