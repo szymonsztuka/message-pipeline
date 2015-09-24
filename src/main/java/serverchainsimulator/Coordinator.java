@@ -17,7 +17,7 @@ public class Coordinator {
     private final List<NetworkEndConfiguration> producerConfigurations = new ArrayList<>(1);
     private final List<NetworkEndConfiguration> consumerConfigurations = new ArrayList<>(1);
     private final List<JvmInstanceConfiguration> jvmConfigurations =  new ArrayList<>(1);
-
+    String modeX = "x";
     /**
      * @param args path to configuration file
      */
@@ -97,7 +97,7 @@ public class Coordinator {
         			new NetworkEndConfiguration(properties.getProperty(prefix + "input.ip"), properties.getProperty(prefix + "input.port"), properties.getProperty("input.directory"), properties.getProperty("input.clientsNumber"), modeT));
         	prefix = String.valueOf(++i) + ".";
         }
-        if (mode.contains("o") || mode.contains("O")) {
+        if (mode.contains("o") || mode.contains("O") || mode.contains("r") || mode.contains("R")) {
         	System.out.println("o");
         	if (properties.getProperty("output.ip") != null) {
         		consumerConfigurations.add(
@@ -125,9 +125,23 @@ public class Coordinator {
        			prefix = String.valueOf(++i) + ".";
        		}
         }
+
+        if (mode.contains("r") || mode.contains("R")) {
+            System.out.println("r");
+            if (properties.getProperty("ssh.host") != null) {
+                consumerConfigurations.add(
+                        //new NetworkEndConfiguration(properties.getProperty("output.ip"), properties.getProperty("output.port"), properties.getProperty("output.directory"), properties.getProperty("input.clientsNumber"), modeT));
+                new NetworkEndConfiguration(properties.getProperty("ssh.user"), properties.getProperty("ssh.host"), properties.getProperty("ssh.password"), properties.getProperty("ssh.sudo_pass"),  properties.getProperty("ssh.command")));
+            }
+            modeX = "r";
+        }
     }
 
     public void run() {
+        if("r".equalsIgnoreCase(modeX)){
+            System.out.println("two consumers");
+            senderTwoReceivers(producerConfigurations.get(0), consumerConfigurations.get(0), consumerConfigurations.get(0));
+        } else
     	if (producerConfigurations.size() > 0 && jvmConfigurations.size() > 0 && consumerConfigurations.size() > 0) {
     		if (producerConfigurations.size() > 1 && jvmConfigurations.size() > 1 && consumerConfigurations.size() > 1) {
     			System.out.println("No action implemented case 1.");
@@ -305,12 +319,12 @@ public class Coordinator {
         logger.info("All done!");
     }
 
-    public void senderTwoReceiver(NetworkEndConfiguration producerConfig, NetworkEndConfiguration consumerConfig, NetworkEndConfiguration consumer2Config) {
-        logger.info("senderReceiver");
+    public void senderTwoReceivers(NetworkEndConfiguration producerConfig, NetworkEndConfiguration consumerConfig, NetworkEndConfiguration consumer2Config) {
+        logger.info("sender two Receiver");
         final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory);
-        for(Path x: readerFileNames) {
-            System.out.println("reader " + x);
-        }
+        //for(Path x: readerFileNames) {
+           // System.out.println("reader " + x);
+        //}
        /* final Path outputDir = generateConsumerRootDir(producerConfig.directory);
         System.out.println("writer root " + outputDir);
         final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
@@ -338,7 +352,7 @@ public class Coordinator {
         //Iterator<Path> writerIt = writerFileNames.iterator();
         CyclicBarrier barrier = new CyclicBarrier(3);
         //while (readerIt.hasNext() && writerIt.hasNext()) {
-        CountDownLatch done = new CountDownLatch(3);
+        CountDownLatch done = new CountDownLatch(2);
         RemoteShellScripTask consumer2 = new RemoteShellScripTask(consumer2Config.user, consumer2Config.host, consumer2Config.password, consumer2Config.sudo_pass, consumer2Config.command,  names,  barrier);
         NonBlockingConsumerEagerIn consumer = new NonBlockingConsumerEagerIn(writerFileNames, getMessageReceiver(), consumerConfig.adress, barrier, consumer2);
 
@@ -348,7 +362,9 @@ public class Coordinator {
 
         Thread producerThread = new Thread(producer);
         Thread consumerThread = new Thread(consumer);
+        Thread consumer2Thread = new Thread(consumer2);
 
+        consumer2Thread.start();
         consumerThread.start();
         try {
             Thread.sleep(1000);

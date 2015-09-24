@@ -1,6 +1,7 @@
 package serverchainsimulator;
 
 import com.jcraft.jsch.*;
+import org.slf4j.*;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -8,6 +9,8 @@ import java.util.List;
 import java.util.concurrent.CyclicBarrier;
 
 public class RemoteShellScripTask implements Runnable {
+
+  private static final org.slf4j.Logger logger = LoggerFactory.getLogger(RemoteShellScripTask.class);
 
   String user;
   String host;
@@ -30,7 +33,7 @@ public class RemoteShellScripTask implements Runnable {
 
   public void signalBeginOfBatch() {
     go = true;
-    //logger.info("process set to "+ process);
+    logger.info("signalBeginOfBatch go="+ go);
   }
 
   public void run(){
@@ -56,13 +59,14 @@ public class RemoteShellScripTask implements Runnable {
         OutputStream out=channel.getOutputStream();
         ((ChannelExec)channel).setErrStream(System.err);
 
+        logger.info("await for go=" + go);
         while(!go) {
-          Thread.sleep(5);
+          Thread.sleep(20);
         }
-
+        logger.info("go="+ go);
         channel.connect();
 
-        out.write((sudo_pass+"\n").getBytes());
+        //out.write((sudo_pass+"\n").getBytes());
         out.flush();
 
         byte[] tmp=new byte[1024];
@@ -80,6 +84,7 @@ public class RemoteShellScripTask implements Runnable {
         channel.disconnect();
        // try{Thread.sleep(1000);}catch(Exception ee){}
         go = false;
+        logger.info("done, await");
         barrier.await();
       }
 
