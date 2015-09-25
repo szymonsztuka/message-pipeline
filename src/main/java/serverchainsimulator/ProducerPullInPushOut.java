@@ -14,6 +14,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
@@ -28,6 +29,8 @@ public class ProducerPullInPushOut implements Runnable {
     final private CyclicBarrier barrier;
     List<Path> paths;
     final private NonBlockingConsumerEagerIn otherThread;
+   // volatile LocalTime currentTime ;
+
     public ProducerPullInPushOut(CountDownLatch latch, List<Path> readerPaths, MessageGenerator messageGenerator, InetSocketAddress address, CyclicBarrier barrier, NonBlockingConsumerEagerIn otherThread) {
         done = latch;
         paths = readerPaths;
@@ -35,6 +38,7 @@ public class ProducerPullInPushOut implements Runnable {
         this.address = address;
         this.barrier = barrier;
         this.otherThread = otherThread;
+
     }
 
     public void run() {

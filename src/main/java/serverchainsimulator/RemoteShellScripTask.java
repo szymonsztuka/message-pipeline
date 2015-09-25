@@ -5,6 +5,8 @@ import org.slf4j.*;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.CyclicBarrier;
 
@@ -20,6 +22,8 @@ public class RemoteShellScripTask implements Runnable {
   CyclicBarrier barrier;
   List<String> files;
   volatile boolean  go = false;
+
+   LocalTime currentTime;
 
 	   public RemoteShellScripTask(String user, String host, String password, String sudo_pass, String command, List<String> files, CyclicBarrier barrier) {
          this.user=user;
@@ -37,23 +41,24 @@ public class RemoteShellScripTask implements Runnable {
   }
 
   public void run(){
+    currentTime = LocalTime.now();
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+    String text = currentTime.format(formatter);
+
+    logger.info("start"+user+ " "+host+ " "+ password);
     try{
     	JSch.setConfig("StrictHostKeyChecking", "no");		 
 		JSch jsch = new JSch();
 		Session session = jsch.getSession(user, host, 22);
 		session.setPassword(password);
-   
+      System.out.println("connecting: " +user+ " "+host+ " "+ password);
       session.connect();
       System.out.println("Connected");
 
-      Channel channel=session.openChannel("exec");
-   
-
-
-
-
-      for(String file: files) {
-        ((ChannelExec)channel).setCommand(command + file);
+      for(String file: files) {Channel channel=session.openChannel("exec");
+        String  xx= "pb -s \""+text+ "\" "+ command + " \"a-"+file+"\"";
+        System.out.println(xx);
+        ((ChannelExec)channel).setCommand(xx);
 
         InputStream in=channel.getInputStream();
         OutputStream out=channel.getOutputStream();
@@ -86,6 +91,7 @@ public class RemoteShellScripTask implements Runnable {
         go = false;
         logger.info("done, await");
         barrier.await();
+        currentTime = LocalTime.now();
       }
 
       session.disconnect();

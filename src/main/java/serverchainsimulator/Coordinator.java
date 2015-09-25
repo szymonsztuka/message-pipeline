@@ -140,7 +140,7 @@ public class Coordinator {
     public void run() {
         if("r".equalsIgnoreCase(modeX)){
             System.out.println("two consumers");
-            senderTwoReceivers(producerConfigurations.get(0), consumerConfigurations.get(0), consumerConfigurations.get(0));
+            senderTwoReceivers(producerConfigurations.get(0), consumerConfigurations.get(0), consumerConfigurations.get(1));
         } else
     	if (producerConfigurations.size() > 0 && jvmConfigurations.size() > 0 && consumerConfigurations.size() > 0) {
     		if (producerConfigurations.size() > 1 && jvmConfigurations.size() > 1 && consumerConfigurations.size() > 1) {
