@@ -28,10 +28,10 @@ public class ProducerPullInPushOut implements Runnable {
     final private InetSocketAddress address;
     final private CyclicBarrier barrier;
     List<Path> paths;
-    final private NonBlockingConsumerEagerIn otherThread;
+    final private List<NonBlockingConsumerEagerIn> otherThread;
    // volatile LocalTime currentTime ;
 
-    public ProducerPullInPushOut(CountDownLatch latch, List<Path> readerPaths, MessageGenerator messageGenerator, InetSocketAddress address, CyclicBarrier barrier, NonBlockingConsumerEagerIn otherThread) {
+    public ProducerPullInPushOut(CountDownLatch latch, List<Path> readerPaths, MessageGenerator messageGenerator, InetSocketAddress address, CyclicBarrier barrier, List<NonBlockingConsumerEagerIn> otherThread) {
         done = latch;
         paths = readerPaths;
         generator = messageGenerator;
@@ -80,7 +80,9 @@ public class ProducerPullInPushOut implements Runnable {
                                 e.printStackTrace();
                             }
                             try {
-                                otherThread.signalOfBatch();
+                                for(NonBlockingConsumerEagerIn e : otherThread) {
+                                    e.signalOfBatch();
+                                }
                                 barrier.await();
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
@@ -89,6 +91,7 @@ public class ProducerPullInPushOut implements Runnable {
                             }
                         }
                         //end of this file
+                        generator.resetSequencNumber();
                     }
                 } catch (IOException ex) {
                     logger.error("Producer cannot read data ", ex);

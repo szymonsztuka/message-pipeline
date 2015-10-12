@@ -43,7 +43,29 @@ public class Coordinator {
         		file = args[2];
         	}
         }
-        final Coordinator coordinator = new Coordinator(args[0], mode, file);
+        String propertiesPath = args[0];
+        Properties properties = new Properties();
+        InputStream in = null;
+        try {
+            System.out.println(propertiesPath);
+            in = new FileInputStream(propertiesPath);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        try {
+            properties.load(in);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (file != null) {
+            if (Files.exists(Paths.get(file))) {
+                properties.setProperty("input.directory", file);
+            } else {
+                throw new IllegalArgumentException("Can't find directory or file " + file + ".");
+            }
+        }
+
+        final Coordinator coordinator = new Coordinator(properties, mode);
         coordinator.run();
 
     }
@@ -60,54 +82,36 @@ public class Coordinator {
         return new SimpleMessageGenerator();
     }
 
-    public Coordinator(String propertiesPath, String mode, String inputFile) {
-    	final Properties properties = new Properties();
+    public Coordinator(Properties properties, String mode) {
 
-        InputStream in = null;
-        try {
-        	System.out.println(propertiesPath);
-            in = new FileInputStream(propertiesPath);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        try {
-            properties.load(in);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        if (inputFile != null) {
-        	if (Files.exists(Paths.get(inputFile))) {
-        		properties.setProperty("input.directory", inputFile);
-        	} else {
-        		throw new IllegalArgumentException("Can't find directory or file " + inputFile + ".");
-        	}
-        }
+
+
         for (Object x : properties.keySet()) {
         	System.out.println(x + "=" + properties.getProperty((String) x));
         }
         boolean modeT = mode.contains("t") || mode.contains("T");
         if (properties.getProperty("input.ip") != null) {
         	producerConfigurations.add(
-        			new NetworkEndConfiguration(properties.getProperty("input.ip"), properties.getProperty("input.port"), properties.getProperty("input.directory"), properties.getProperty("input.clientsNumber"), modeT));
+        			new NetworkEndConfiguration(properties.getProperty("input.ip"), properties.getProperty("input.port"), properties.getProperty("input.directory"), properties.getProperty("input.clientsNumber"), modeT,  properties.getProperty("skipDir")));
         }
         int i = 1;
         String prefix = "1.";
         while (properties.getProperty(prefix + "input.ip") != null) {
         	producerConfigurations.add(
-        			new NetworkEndConfiguration(properties.getProperty(prefix + "input.ip"), properties.getProperty(prefix + "input.port"), properties.getProperty("input.directory"), properties.getProperty("input.clientsNumber"), modeT));
+        			new NetworkEndConfiguration(properties.getProperty(prefix + "input.ip"), properties.getProperty(prefix + "input.port"), properties.getProperty("input.directory"), properties.getProperty("input.clientsNumber"), modeT,  properties.getProperty("skipDir")));
         	prefix = String.valueOf(++i) + ".";
         }
         if (mode.contains("o") || mode.contains("O") || mode.contains("r") || mode.contains("R")) {
         	System.out.println("o");
         	if (properties.getProperty("output.ip") != null) {
         		consumerConfigurations.add(
-        				new NetworkEndConfiguration(properties.getProperty("output.ip"), properties.getProperty("output.port"), properties.getProperty("output.directory"), properties.getProperty("input.clientsNumber"), modeT));
+        				new NetworkEndConfiguration(properties.getProperty("output.ip"), properties.getProperty("output.port"), properties.getProperty("output.directory"), properties.getProperty("input.clientsNumber"), modeT,  properties.getProperty("skipDir")));
         	}
         	i = 1;
         	prefix = "1.";
         	while (properties.getProperty(prefix + "output.ip") != null) {
         		consumerConfigurations.add(
-        				new NetworkEndConfiguration(properties.getProperty(prefix + "output.ip"), properties.getProperty(prefix + "output.port"), properties.getProperty(prefix + "output.directory"), properties.getProperty("input.clientsNumber"), modeT));
+        				new NetworkEndConfiguration(properties.getProperty(prefix + "output.ip"), properties.getProperty(prefix + "output.port"), properties.getProperty(prefix + "output.directory"), properties.getProperty("input.clientsNumber"), modeT,  properties.getProperty("skipDir")));
         		prefix = String.valueOf(++i) + ".";
         	}
         }
@@ -141,6 +145,10 @@ public class Coordinator {
         if("r".equalsIgnoreCase(modeX)){
             System.out.println("two consumers");
             senderTwoReceivers(producerConfigurations.get(0), consumerConfigurations.get(0), consumerConfigurations.get(1));
+        } else if (producerConfigurations.size() > 0 && jvmConfigurations.size() == 0 && consumerConfigurations.size() > 1) {
+            System.out.println("One producer - 2 consumers");
+                senderReceiver(producerConfigurations.get(0), consumerConfigurations);
+
         } else
     	if (producerConfigurations.size() > 0 && jvmConfigurations.size() > 0 && consumerConfigurations.size() > 0) {
     		if (producerConfigurations.size() > 1 && jvmConfigurations.size() > 1 && consumerConfigurations.size() > 1) {
@@ -149,18 +157,21 @@ public class Coordinator {
     			statelessBootstrap(producerConfigurations.get(0), jvmConfigurations.get(0), consumerConfigurations.get(0));
     		}
     	} else if (producerConfigurations.size() > 0 && jvmConfigurations.size() == 0 && consumerConfigurations.size() > 0) {
-    		System.out.println("No action implemented case 3.");
-    		senderReceiver(producerConfigurations.get(0),consumerConfigurations.get(0));
+    		System.out.println("senderReceiver 3.");
+    		senderReceiver(producerConfigurations.get(0), consumerConfigurations.get(0));
     	} else if (producerConfigurations.size() > 0 && jvmConfigurations.size() == 0 && consumerConfigurations.size() == 0) {
-    		send(producerConfigurations.get(0));
-    	} else {
+            send(producerConfigurations.get(0));
+        } else if (producerConfigurations.size() == 0 && jvmConfigurations.size() == 0 && consumerConfigurations.size() > 0) {
+            System.out.println("Receive");
+                  receive(consumerConfigurations.get(0));
+        } else {
     		System.out.println("No action " + producerConfigurations.size() + " " + jvmConfigurations.size() + " " + consumerConfigurations.size());
     	}
     }
 
     public void statelessBootstrap(NetworkEndConfiguration producerConfig, JvmInstanceConfiguration serverConfig, NetworkEndConfiguration consumerConfig) {
         logger.info("statelessBootstrap");
-        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory);
+        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory, producerConfig.ignoreFolderName);
         for(Path x: readerFileNames) {
         	System.out.println("reader " + x);
         }
@@ -246,7 +257,7 @@ public class Coordinator {
     
     public void senderReceiver(NetworkEndConfiguration producerConfig, NetworkEndConfiguration consumerConfig) {
         logger.info("senderReceiver");
-        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory);
+        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory, producerConfig.ignoreFolderName);
         for(Path x: readerFileNames) {
         	System.out.println("reader " + x);
         }
@@ -275,20 +286,22 @@ public class Coordinator {
         //while (readerIt.hasNext() && writerIt.hasNext()) {
             CountDownLatch done = new CountDownLatch(2);
         NonBlockingConsumerEagerIn consumer = new NonBlockingConsumerEagerIn(writerFileNames, getMessageReceiver(), consumerConfig.adress, barrier,null);
-
-        ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumer);
+        List<NonBlockingConsumerEagerIn> consumers = new ArrayList<>(1);
+        consumers.add(consumer);
+        ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumers);
             //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.adress);
            
 
             Thread producerThread = new Thread(producer);
             Thread consumerThread = new Thread(consumer);
-
+        System.out.println("Consumer start!");
             consumerThread.start();
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+        System.out.println("Producer start!");
             producerThread.start();
             try {
                 producerThread.join();
@@ -303,7 +316,7 @@ public class Coordinator {
             }
             //logger.info("Terminating consumer!");
             //consumer.terminate();
-            logger.info("Awaiting join consumer!");
+            System.out.println("Awaiting join consumer!");
             try {
                 consumerThread.join();
             } catch (InterruptedException e) {
@@ -319,9 +332,99 @@ public class Coordinator {
         logger.info("All done!");
     }
 
+
+    public void senderReceiver(NetworkEndConfiguration producerConfig, List<NetworkEndConfiguration> consumerConfig) {
+        logger.info("1  sender 2 parallel receivers");
+        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory, producerConfig.ignoreFolderName);
+        for(Path x: readerFileNames) {
+            System.out.println("reader " + x);
+        }
+       /* final Path outputDir = generateConsumerRootDir(producerConfig.directory);
+        System.out.println("writer root " + outputDir);
+        final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
+        for(Path x: writerFileNames) {
+        	System.out.println("writer " + x);
+        }*/
+        /*final Path outputDir = generateConsumerRootDir2(producerConfig.directory, consumerConfig.directory);
+        System.out.println("writer root " + outputDir);
+        final List<Path> writerFileNames = generateConsumerPaths2(producerConfig.directory, outputDir, readerFileNames);
+        for(Path x: writerFileNames) {
+        	System.out.println("writer " + x);
+        }*/
+        final Path outputDir1 = generateConsumerRootDir3(consumerConfig.get(0).directory);
+        System.out.println("output " +outputDir1);
+        final List<Path> writerFileNames1 = generateConsumerPaths3(outputDir1, readerFileNames, producerConfig.directory);
+
+
+        final Path outputDir2 = generateConsumerRootDir3(consumerConfig.get(1).directory);
+        System.out.println("output " +outputDir2);
+        final List<Path> writerFileNames2 = generateConsumerPaths3(outputDir2, readerFileNames, producerConfig.directory);
+
+        //Iterator<Path> readerIt = readerFil for (Path path: producerInputPath) {eNames.iterator();
+        //Iterator<Path> writerIt = writerFileNames.iterator();
+        CyclicBarrier barrier = new CyclicBarrier(4);
+        //while (readerIt.hasNext() && writerIt.hasNext()) {
+        CountDownLatch done = new CountDownLatch(2);
+        NonBlockingConsumerEagerIn consumer1 = new NonBlockingConsumerEagerIn(writerFileNames1, getMessageReceiver(), consumerConfig.get(0).adress, barrier,null);
+        NonBlockingConsumerEagerIn consumer2 = new NonBlockingConsumerEagerIn(writerFileNames2, getMessageReceiver(), consumerConfig.get(1).adress, barrier,null);
+        List<NonBlockingConsumerEagerIn> consumers = new ArrayList<>(2);
+        consumers.add(consumer1);
+        consumers.add(consumer2);
+
+        //ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumers);
+;
+        List generators = new ArrayList<>(2);
+        generators.add(getMessageGenerator());
+        generators.add(getMessageGenerator());
+        PullPushMultiProducer producer = new PullPushMultiProducer(done, readerFileNames,generators  , producerConfig.adress, producerConfig.noClients, producerConfig.sendAtTimestamp, barrier, consumers);
+
+        Thread producerThread = new Thread(producer);
+        Thread consumerThread1 = new Thread(consumer1);
+        Thread consumerThread2 = new Thread(consumer2);
+        System.out.println("Consumer start!");
+        consumerThread1.start();
+        consumerThread2.start();
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("Producer start!");
+        producerThread.start();
+        try {
+            producerThread.join();
+        } catch (InterruptedException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
+        try {
+            Thread.sleep(1000 * 10);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        //logger.info("Terminating consumer!");
+        //consumer.terminate();
+        System.out.println("Awaiting join consumer!");
+        try {
+            consumerThread1.join();
+            consumerThread2.join();
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        done.countDown();
+
+
+
+        //}
+        logger.info("All done!");
+    }
+
+
     public void senderTwoReceivers(NetworkEndConfiguration producerConfig, NetworkEndConfiguration consumerConfig, NetworkEndConfiguration consumer2Config) {
         logger.info("sender two Receiver");
-        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory);
+        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory, producerConfig.ignoreFolderName);
         //for(Path x: readerFileNames) {
            // System.out.println("reader " + x);
         //}
@@ -355,8 +458,9 @@ public class Coordinator {
         CountDownLatch done = new CountDownLatch(2);
         RemoteShellScripTask consumer2 = new RemoteShellScripTask(consumer2Config.user, consumer2Config.host, consumer2Config.password, consumer2Config.sudo_pass, consumer2Config.command,  names,  barrier);
         NonBlockingConsumerEagerIn consumer = new NonBlockingConsumerEagerIn(writerFileNames, getMessageReceiver(), consumerConfig.adress, barrier, consumer2);
-
-        ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumer);
+        List<NonBlockingConsumerEagerIn> consumers = new ArrayList<>(1);
+        consumers.add(consumer);
+        ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumers);
         //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.adress);
 
 
@@ -681,7 +785,7 @@ public class Coordinator {
 */
     public void send(NetworkEndConfiguration producerConfig) {
         logger.info("send mode");
-        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory);
+        final List<Path> readerFileNames = collectProducerPaths(producerConfig.directory, producerConfig.ignoreFolderName);
         Iterator<Path> readerIt = readerFileNames.iterator();
 
         while(readerIt.hasNext()) {
@@ -708,16 +812,34 @@ public class Coordinator {
         logger.info("All done!");
     }
 
+
+    public void receive(NetworkEndConfiguration consumerConfig) {
+        logger.info("echo receiver");
+
+        EchoConsumer consumer = new EchoConsumer(getMessageReceiver(), consumerConfig.adress);
+
+        Thread consumerThread = new Thread(consumer);
+
+        consumerThread.start();
+
+        try {
+            consumerThread.join();
+        } catch (InterruptedException e1) {
+            e1.printStackTrace();
+         }
+        logger.info("All done!");
+    }
+
     private static boolean isDirNonEmpty(final Path directory) throws IOException {
         try(DirectoryStream<Path> dirStream = Files.newDirectoryStream(directory)) {
             return dirStream.iterator().hasNext();
         }
     }
 
-    private List<Path>collectProducerPaths (Path dirOrFilePath) {
+    private List<Path>collectProducerPaths (Path dirOrFilePath, String ignore) {
 
         if (Files.isDirectory(dirOrFilePath, LinkOption.NOFOLLOW_LINKS)) {
-            RecursiveFileCollector walk= new RecursiveFileCollector();
+            RecursiveFileCollector walk= new RecursiveFileCollector(ignore);
             try {
                 Files.walkFileTree(dirOrFilePath, walk);
             } catch (IOException ex) {
@@ -899,8 +1021,19 @@ public class Coordinator {
     
     class RecursiveFileCollector extends SimpleFileVisitor<Path> {
         private final List<Path> result = new ArrayList<Path>();
-        public RecursiveFileCollector() {
+        private final String ignore;
+        public RecursiveFileCollector(String ignore) {
+            this.ignore = ignore;
         }
+        @Override
+        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+            if (dir.getFileName().toString().equals(ignore)) {
+                System.out.println("skipping" + dir.getFileName().toString());
+                return FileVisitResult.SKIP_SUBTREE;
+            } else
+                return super.preVisitDirectory(dir, attrs);
+        }
+
         @Override
         public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
              return FileVisitResult.CONTINUE;

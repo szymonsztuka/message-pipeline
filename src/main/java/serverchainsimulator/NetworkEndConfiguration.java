@@ -11,10 +11,13 @@ public class NetworkEndConfiguration {
     public final int noClients;
     public final boolean sendAtTimestamp;
     //tring user, String host, String password, String sudo_pass, String command
+	public final String ignoreFolderName;
 
-    public NetworkEndConfiguration(String ip, String port, String directory, String noClients, boolean sendAtTimestamp) {
+    public NetworkEndConfiguration(String ip, String port, String directory, String noClients, boolean sendAtTimestamp, String ignoreFolderName) {
     	adress = new InetSocketAddress(ip, Integer.parseInt(port));
-    	this.directory = Paths.get(directory);
+		if(directory != null && !directory.equals("")) {
+			this.directory = Paths.get(directory);
+		} else this.directory = null;
     	int val =0;
     	try {
     		val = Integer.parseInt(noClients);
@@ -28,8 +31,9 @@ public class NetworkEndConfiguration {
     		this.sendAtTimestamp = false;
     	}*/
     	this.sendAtTimestamp = sendAtTimestamp;
-    	
+    	this.ignoreFolderName = ignoreFolderName;
 	}
+
 
 	String user;
 	String host;
@@ -48,6 +52,6 @@ public class NetworkEndConfiguration {
 		directory =null;
 		noClients=0;
 		sendAtTimestamp = false;
-
+		this.ignoreFolderName = null;
 	}
 }
