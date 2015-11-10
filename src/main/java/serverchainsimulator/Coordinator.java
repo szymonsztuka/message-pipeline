@@ -178,14 +178,14 @@ public class Coordinator {
        /* final Path outputDir = generateConsumerRootDir(producerConfig.directory);
         System.out.println("writer root " + outputDir);
         final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
-        for(Path x: writerFileNames) {
-        	System.out.println("writer " + x);
+        for(Path threads: writerFileNames) {
+        	System.out.println("writer " + threads);
         }*/
         /*final Path outputDir = generateConsumerRootDir2(producerConfig.directory, consumerConfig.directory);
         System.out.println("writer root " + outputDir);
         final List<Path> writerFileNames = generateConsumerPaths2(producerConfig.directory, outputDir, readerFileNames);
-        for(Path x: writerFileNames) {
-        	System.out.println("writer " + x);
+        for(Path threads: writerFileNames) {
+        	System.out.println("writer " + threads);
         }*/
         final Path outputDir = generateConsumerRootDir3(consumerConfig.directory);
         System.out.println("output " +outputDir);
@@ -264,20 +264,20 @@ public class Coordinator {
        /* final Path outputDir = generateConsumerRootDir(producerConfig.directory);
         System.out.println("writer root " + outputDir);
         final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
-        for(Path x: writerFileNames) {
-        	System.out.println("writer " + x);
+        for(Path threads: writerFileNames) {
+        	System.out.println("writer " + threads);
         }*/
         /*final Path outputDir = generateConsumerRootDir2(producerConfig.directory, consumerConfig.directory);
         System.out.println("writer root " + outputDir);
         final List<Path> writerFileNames = generateConsumerPaths2(producerConfig.directory, outputDir, readerFileNames);
-        for(Path x: writerFileNames) {
-        	System.out.println("writer " + x);
+        for(Path threads: writerFileNames) {
+        	System.out.println("writer " + threads);
         }*/
         final Path outputDir = generateConsumerRootDir3(consumerConfig.directory);
         System.out.println("output " +outputDir);
         final List<Path> writerFileNames = generateConsumerPaths3(outputDir, readerFileNames, producerConfig.directory);
-        //for(Path x: writerFileNames) {
-        //	System.out.println("writer " + x);
+        //for(Path threads: writerFileNames) {
+        //	System.out.println("writer " + threads);
         //}
         
         //Iterator<Path> readerIt = readerFil for (Path path: producerInputPath) {eNames.iterator();
@@ -342,14 +342,14 @@ public class Coordinator {
        /* final Path outputDir = generateConsumerRootDir(producerConfig.directory);
         System.out.println("writer root " + outputDir);
         final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
-        for(Path x: writerFileNames) {
-        	System.out.println("writer " + x);
+        for(Path threads: writerFileNames) {
+        	System.out.println("writer " + threads);
         }*/
         /*final Path outputDir = generateConsumerRootDir2(producerConfig.directory, consumerConfig.directory);
         System.out.println("writer root " + outputDir);
         final List<Path> writerFileNames = generateConsumerPaths2(producerConfig.directory, outputDir, readerFileNames);
-        for(Path x: writerFileNames) {
-        	System.out.println("writer " + x);
+        for(Path threads: writerFileNames) {
+        	System.out.println("writer " + threads);
         }*/
         final Path outputDir1 = generateConsumerRootDir3(consumerConfig.get(0).directory);
         System.out.println("output " +outputDir1);
@@ -443,8 +443,8 @@ public class Coordinator {
         final Path outputDir = generateConsumerRootDir3(consumerConfig.directory);
         System.out.println("output " +outputDir);
         final List<Path> writerFileNames = generateConsumerPaths3(outputDir, readerFileNames, producerConfig.directory);
-        //for(Path x: writerFileNames) {
-        //	System.out.println("writer " + x);
+        //for(Path threads: writerFileNames) {
+        //	System.out.println("writer " + threads);
         //}
         List<String> names = new ArrayList();
         for (Path path: readerFileNames) {
@@ -511,8 +511,8 @@ public class Coordinator {
         final List<List<Path>> writersFileNames = new ArrayList<>(consumersOutputDirectory.size());
 
         final List<Path> readerFileNames = collectProducerPaths(producerInputDirectory);
-        for(String x: consumersOutputDirectory ) {
-            final Path outputDir = generateConsumerRootDir(x);
+        for(String threads: consumersOutputDirectory ) {
+            final Path outputDir = generateConsumerRootDir(threads);
             final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
             writersFileNames.add(writerFileNames);
         }
@@ -524,8 +524,8 @@ public class Coordinator {
             Producer producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerHostIp, producerPort);
             List<NonBlockingConsumer> consumers = new ArrayList<>();
             int j = 0;
-            for(List<Path> x: writersFileNames){
-                NonBlockingConsumer consumer = new NonBlockingConsumer(x.get(i), getMessageReceiver(),
+            for(List<Path> threads: writersFileNames){
+                NonBlockingConsumer consumer = new NonBlockingConsumer(threads.get(i), getMessageReceiver(),
                         consumersHostIp.get(j),
                         consumersPort.get(j));
                 j++;
@@ -534,8 +534,8 @@ public class Coordinator {
             i++;
             List<Bootstrap> jvms = new ArrayList<>(jvmConfigurations.size());
             List<Thread> jvmThreads = new ArrayList<>(jvmConfigurations.size());
-            for(JvmInstanceConfiguration x: jvmConfigurations) {
-                Bootstrap bootstrap = new Bootstrap(done, x.classpath, x.jvmArguments, x.mainClass, x.programArguments);
+            for(JvmInstanceConfiguration threads: jvmConfigurations) {
+                Bootstrap bootstrap = new Bootstrap(done, threads.classpath, threads.jvmArguments, threads.mainClass, threads.programArguments);
                 jvms.add(bootstrap);
                 Thread bootstrapThread = new Thread(bootstrap);
                 jvmThreads.add(bootstrapThread);

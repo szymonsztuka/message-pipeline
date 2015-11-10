@@ -91,8 +91,8 @@ public class NonBlockingConsumerEagerIn implements Runnable {
                                         logger.info("awaiting 0 reads  " + x + " 1 reads " + y);
 
                                         while (keySocketChannel.read(buffer) != -1) {
-                                            // if ( ((x+1) % 100000 ==0) || ((y+1) % 100000 == 0) ) {
-                                            //	 logger.info("0 reads  " + x +" 1 reads "+ y);
+                                            // if ( ((threads+1) % 100000 ==0) || ((y+1) % 100000 == 0) ) {
+                                            //	 logger.info("0 reads  " + threads +" 1 reads "+ y);
                                             // }
                                             //logger.info("process "+ process);
                                             if (buffer.position() > 0) {
