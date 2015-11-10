@@ -79,9 +79,9 @@ public class NonBlockingConsumerEagerIn implements Runnable {
                                 if (keySocketChannel.isConnectionPending()) {
                                     keySocketChannel.finishConnect();
                                 }
-
+                                logger.info("Consumer connected " + paths);
                                 for(Path path : paths) {
-                                    logger.info("Consumer connected " + path);
+
                                     if (Files.notExists(path.getParent())) {
                                         Files.createDirectories(path.getParent());
                                     }
@@ -113,8 +113,8 @@ public class NonBlockingConsumerEagerIn implements Runnable {
                                                     buffer.clear();
                                                 }
                                             } else if (!process) {
-                                                logger.info("Consumer says good bye;");
-                                                //return;
+                                                logger.info("file session - consumer ends;");
+
                                                 break;
                                             } else {
                                                 x++;
@@ -125,7 +125,9 @@ public class NonBlockingConsumerEagerIn implements Runnable {
                                         if(otherThread!=null) {
                                             otherThread.signalBeginOfBatch();
                                         }
+                                        logger.info("-> " + barrier.getNumberWaiting());
                                         barrier.await();
+                                        logger.info("-> " + barrier.getNumberWaiting() +" -> ");
                                         process = true;
                                     } catch (InterruptedException e) {
                                         e.printStackTrace();

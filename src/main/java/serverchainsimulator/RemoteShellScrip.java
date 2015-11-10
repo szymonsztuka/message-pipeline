@@ -28,8 +28,8 @@ public class RemoteShellScrip{
       ((ChannelExec)channel).setErrStream(System.err);
 
       channel.connect();
-
-      out.write((sudo_pass+"\n").getBytes());
+System.out.println("no sudo");
+      //out.write((sudo_pass+"\n").getBytes());
       out.flush();
 
       byte[] tmp=new byte[1024];
