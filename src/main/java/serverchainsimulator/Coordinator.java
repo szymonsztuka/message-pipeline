@@ -81,7 +81,10 @@ public class Coordinator {
     protected MessageGenerator getMessageGenerator() {
         return new SimpleMessageGenerator();
     }
+    /** Dummy for export statless public methods */
+    public Coordinator() {
 
+    }
     public Coordinator(Properties properties, String mode) {
 
 
@@ -816,7 +819,7 @@ public class Coordinator {
     public void receive(NetworkEndConfiguration consumerConfig) {
         logger.info("echo receiver");
 
-        EchoConsumer consumer = new EchoConsumer(getMessageReceiver(), consumerConfig.adress);
+        /*EchoConsumer consumer = new EchoConsumer(getMessageReceiver(), consumerConfig.adress);
 
         Thread consumerThread = new Thread(consumer);
 
@@ -826,7 +829,7 @@ public class Coordinator {
             consumerThread.join();
         } catch (InterruptedException e1) {
             e1.printStackTrace();
-         }
+         }*/
         logger.info("All done!");
     }
 
@@ -836,7 +839,7 @@ public class Coordinator {
         }
     }
 
-    private List<Path>collectProducerPaths (Path dirOrFilePath, String ignore) {
+    public List<Path>collectProducerPaths (Path dirOrFilePath, String ignore) {
 
         if (Files.isDirectory(dirOrFilePath, LinkOption.NOFOLLOW_LINKS)) {
             RecursiveFileCollector walk= new RecursiveFileCollector(ignore);
@@ -938,7 +941,7 @@ public class Coordinator {
     
     
     
-    private Path generateConsumerRootDir3(final Path outputDir) {
+    public static  Path generateConsumerRootDir3(final Path outputDir) {
     	
     	
     	final String n;
@@ -1002,7 +1005,7 @@ public class Coordinator {
     }
     
     
-    private List<Path> generateConsumerPaths3(Path outputDir, List<Path> producerInputPath, Path inputDir) {
+    public static List<Path> generateConsumerPaths3(Path outputDir, List<Path> producerInputPath, Path inputDir) {
         final List<Path> readerFileNames = new ArrayList<Path>();
         for (Path path: producerInputPath) {
             Path outputSubPath = path.subpath(inputDir.getNameCount(), path.getNameCount());

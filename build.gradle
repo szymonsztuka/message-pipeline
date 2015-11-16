@@ -12,7 +12,8 @@ configurations {
 
 jar {
     manifest {
-        attributes 'Main-Class': 'serverchainsimulator.Coordinator'
+        //attributes 'Main-Class': 'serverchainsimulator.Coordinator'
+        attributes 'Main-Class': 'serverchainsimulator.ServerChainSimulator'
     }
 }
 
@@ -25,4 +26,27 @@ dependencies {
     compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.+'
     compile group: 'com.jcraft', name:'jsch', version:'0.1.+'
 }
+
+task copyProperties(type: Copy) {
+    from ('src/properties/') {
+        include '**/*.properties'
+    }
+    into 'build'
+}
+
+task copyScripts(type: Copy) {
+    from ('src/properties/') {
+        include '**/*.sh'
+        fileMode 0755
+    }
+    into 'build'
+}
+
+task copyToLib(type: Copy) {
+    into "$buildDir/libs/"
+    from configurations.runtime
+}
+
+task build(dependsOn: [jar, copyProperties, copyScripts, copyToLib])
+
 
