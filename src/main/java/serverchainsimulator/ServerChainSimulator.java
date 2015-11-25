@@ -175,7 +175,11 @@ public class ServerChainSimulator {
             CountDownLatch done = new CountDownLatch(1);
             final Runnable producer;
             if(producerConfig.noClients>1) {
-                producer = new MultiProducer(done,  readerIt.next(),  getMessageGenerator(), producerConfig.adress, producerConfig.noClients, producerConfig.sendAtTimestamp);
+                List<MessageGenerator> msgProducers = new ArrayList<>(producerConfig.noClients);
+                for(int i=0; i < producerConfig.noClients; i++) {
+                    msgProducers.add(getMessageGenerator());
+                }
+                producer = new MultiProducer(done,  readerIt.next(), msgProducers, producerConfig.adress, producerConfig.noClients, producerConfig.sendAtTimestamp);
 
             } else{
                 producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerConfig.adress, producerConfig.sendAtTimestamp);

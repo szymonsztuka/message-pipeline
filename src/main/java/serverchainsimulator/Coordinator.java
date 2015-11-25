@@ -795,7 +795,7 @@ public class Coordinator {
             CountDownLatch done = new CountDownLatch(1);
             final Runnable producer;
             if(producerConfig.noClients>1) {
-            	List<MessageGenerator> msgProducers = new ArrayList<MessageGenerator>(producerConfig.noClients);
+            	List<MessageGenerator> msgProducers = new ArrayList<>(producerConfig.noClients);
                 for(int i=0; i < producerConfig.noClients; i++) {
                     msgProducers.add(getMessageGenerator());
                 }
