@@ -23,16 +23,16 @@ import java.util.concurrent.TimeUnit;
 public class MultiProducer implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(MultiProducer.class);
-    final private MessageGenerator generator;
+    final List<MessageGenerator> generators;
     final private CountDownLatch done;
     final private InetSocketAddress address;
     Path path;
     final private int noClients ;
     final private boolean sendAtTimestamps;
-    public MultiProducer(CountDownLatch latch, Path readerPath, MessageGenerator messageGenerator, InetSocketAddress address, int noClients, boolean sendAtTimestamps) {
+    public MultiProducer(CountDownLatch latch, Path readerPath, List<MessageGenerator> msgProducers, InetSocketAddress address, int noClients, boolean sendAtTimestamps) {
         done = latch;
         path = readerPath;
-        generator = messageGenerator;
+        generators = msgProducers;
         this.address = address;
         this.noClients = noClients > 0 ? noClients : 1;
         this.sendAtTimestamps = sendAtTimestamps;
@@ -55,7 +55,7 @@ public class MultiProducer implements Runnable {
                     try{ 
                     	SocketChannel socketChannel = serverSocketChannel.accept();              
                         logger.info("Producer connected " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
-                        SubProducer subProducer = new SubProducer(socketChannel, path, generator);
+                        SubProducer subProducer = new SubProducer(socketChannel, path, generators.get(i));
                         threads.add(subProducer);                
                         Thread subThread = new Thread(subProducer);
                         subThread.start();
