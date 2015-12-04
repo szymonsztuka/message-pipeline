@@ -137,12 +137,15 @@ public class ServerChainSimulator {
                             &&  values.get("output").equals("files")
                     ) {
                 tcpClientReceiverFileOutput.put(elem.getKey(), elem.getValue());
+            } else{
+                System.out.print("\n !!!!!!!!!! configuration skipped");
             }
         }
         System.out.println("fileInputTcpServerSender");
         System.out.println(fileInputTcpServerSender);
 
-
+        System.out.println("\n\ntcpClientReceiverFileOutput " + tcpClientReceiverFileOutput.size());
+        System.out.println(tcpClientReceiverFileOutput);
 
         if(fileInputTcpServerSender.size()==1 && tcpClientReceiverFileOutput.size()==0) {
             Map<String,String> values = fileInputTcpServerSender.entrySet().iterator().next().getValue();
@@ -154,13 +157,43 @@ public class ServerChainSimulator {
                     "true".equals(values.get("output.realtime")),
                     null) );
             } else if(fileInputTcpServerSender.size()==1 && tcpClientReceiverFileOutput.size()==2) {
-            Map<String,String> senderValues = fileInputTcpServerSender.entrySet().iterator().next().getValue();
 
-            Iterator<Map.Entry<String,Map<String,String>>> reciverIt = tcpClientReceiverFileOutput.entrySet().iterator();
-            Map<String,String> firstReceiverValues = reciverIt.next().getValue();
+                Map<String,String> senderValues = fileInputTcpServerSender.entrySet().iterator().next().getValue();
 
-            Map<String,String> secondReceiverValues = reciverIt.next().getValue();
+                Iterator<Map.Entry<String,Map<String,String>>> reciverIt = tcpClientReceiverFileOutput.entrySet().iterator();
+                Map<String,String> firstReceiverValues = reciverIt.next().getValue();
 
+                Map<String,String> secondReceiverValues = reciverIt.next().getValue();
+
+                ServerChainSimulator simulator = new ServerChainSimulator();
+
+                List<NetworkEndConfiguration> consumerConfigs = new ArrayList<>(2);
+                consumerConfigs.add(
+
+            new NetworkEndConfiguration(firstReceiverValues.get("input.ip"),
+                    firstReceiverValues.get("input.port"),
+                    firstReceiverValues.get("output.directory"),
+                    null,
+                    false,
+                    null)
+            );
+
+            consumerConfigs.add(
+
+                    new NetworkEndConfiguration(secondReceiverValues.get("input.ip"),
+                            secondReceiverValues.get("input.port"),
+                            secondReceiverValues.get("output.directory"),
+                            null,
+                            false,
+                            null)
+            );
+
+                simulator.sendReceive(new NetworkEndConfiguration(senderValues.get("output.ip")              ,
+                        senderValues.get("output.port")     ,
+                        senderValues.get("input.directory") ,
+                        senderValues.get("output.clients.number"),
+                        "true".equals(senderValues.get("output.realtime")),
+                        null),  consumerConfigs);
         }
     }
 
