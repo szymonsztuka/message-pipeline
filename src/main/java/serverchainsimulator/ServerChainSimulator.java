@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,23 +18,17 @@ import java.util.stream.Collectors;
 /**
  * Created by szsz on 16/11/15.
  */
-public class ServerChainSimulator {
+public abstract class ServerChainSimulator {
 
     private static final Logger logger = LoggerFactory.getLogger(ServerChainSimulator.class);
 
-    protected MessageReceiver getMessageReceiver() {
-        return new SimpleMessageReceiver();
-    }
+    protected abstract MessageReceiver getMessageReceiver(String type);
 
-    protected PullMessageReceiver getPullMessageReceiver() {
-        return null;
-    }
+    //protected abstract PullMessageReceiver getPullMessageReceiver(String type);
 
-    protected MessageGenerator getMessageGenerator() {
-        return new SimpleMessageGenerator();
-    }
+    protected abstract MessageGenerator getMessageGenerator(String type);
 
-    public static void main(String[] args) {
+    public void start(String[] args) {
         Optional<Properties> fileProperties = Arrays.stream(args)
                 .filter((String s) -> !s.startsWith("-"))
                 .map((String s) -> {
@@ -119,7 +114,7 @@ public class ServerChainSimulator {
                                 ));
         System.out.println(result2);
 
-        Map<String, Map<String,String>>  fileInputTcpServerSender = new TreeMap<>();
+        Map<String, Map<String,String>> fileInputTcpServerSender = new TreeMap<>();
         Map<String, Map<String,String>> tcpClientReceiverFileOutput = new TreeMap<>();
 
         for(Map.Entry<String, Map<String,String>> elem : result2.entrySet()) {
@@ -130,8 +125,7 @@ public class ServerChainSimulator {
                     &&  values.get("output").equals("tcpserver")
                     ) {
                 fileInputTcpServerSender.put(elem.getKey(), elem.getValue());
-            } else if(
-                    values.containsKey("type") && values.containsKey("input") && values.containsKey("output")
+            } else if ( values.containsKey("type") && values.containsKey("input") && values.containsKey("output")
                             &&  values.get("type").equals("receiver")
                             &&  values.get("input").equals("tcpclient")
                             &&  values.get("output").equals("files")
@@ -147,81 +141,50 @@ public class ServerChainSimulator {
         System.out.println("\n\ntcpClientReceiverFileOutput " + tcpClientReceiverFileOutput.size());
         System.out.println(tcpClientReceiverFileOutput);
 
-        if(fileInputTcpServerSender.size()==1 && tcpClientReceiverFileOutput.size()==0) {
+        if (fileInputTcpServerSender.size()==1 && tcpClientReceiverFileOutput.size()==0) {
             Map<String,String> values = fileInputTcpServerSender.entrySet().iterator().next().getValue();
-            ServerChainSimulator simulator = new ServerChainSimulator();
-            simulator.send(new NetworkEndConfiguration(values.get("output.ip")              ,
-                    values.get("output.port")     ,
-                    values.get("input.directory") ,
-                    values.get("output.clients.number"),
-                    "true".equals(values.get("output.realtime")),
-                    null) );
-            } else if(fileInputTcpServerSender.size()==1 && tcpClientReceiverFileOutput.size()==2) {
-
-                Map<String,String> senderValues = fileInputTcpServerSender.entrySet().iterator().next().getValue();
-
-                Iterator<Map.Entry<String,Map<String,String>>> reciverIt = tcpClientReceiverFileOutput.entrySet().iterator();
-                Map<String,String> firstReceiverValues = reciverIt.next().getValue();
-
-                Map<String,String> secondReceiverValues = reciverIt.next().getValue();
-
-                ServerChainSimulator simulator = new ServerChainSimulator();
-
-                List<NetworkEndConfiguration> consumerConfigs = new ArrayList<>(2);
-                consumerConfigs.add(
-
-            new NetworkEndConfiguration(firstReceiverValues.get("input.ip"),
-                    firstReceiverValues.get("input.port"),
-                    firstReceiverValues.get("output.directory"),
-                    null,
-                    false,
-                    null)
-            );
-
-            consumerConfigs.add(
-
-                    new NetworkEndConfiguration(secondReceiverValues.get("input.ip"),
-                            secondReceiverValues.get("input.port"),
-                            secondReceiverValues.get("output.directory"),
-                            null,
-                            false,
-                            null)
-            );
-
-                simulator.sendReceive(new NetworkEndConfiguration(senderValues.get("output.ip")              ,
-                        senderValues.get("output.port")     ,
-                        senderValues.get("input.directory") ,
-                        senderValues.get("output.clients.number"),
-                        "true".equals(senderValues.get("output.realtime")),
-                        null),  consumerConfigs);
+            send(values);
+        } else if (fileInputTcpServerSender.size()==1 && tcpClientReceiverFileOutput.size()==2) {
+            Map<String,String> senderValues = fileInputTcpServerSender.entrySet().iterator().next().getValue();
+            Iterator<Map.Entry<String,Map<String,String>>> receiverIt = tcpClientReceiverFileOutput.entrySet().iterator();
+            List<Map<String,String>> consumerConfigs = new ArrayList<>(2);
+            consumerConfigs.add(receiverIt.next().getValue());
+            consumerConfigs.add(receiverIt.next().getValue());
+            sendReceive(senderValues,consumerConfigs);
         }
     }
 
+    public void send(Map<String,String> values) {
 
-    public void send(NetworkEndConfiguration producerConfig) {
         logger.info("send mode");
         Coordinator coordinator = new Coordinator();
-        final List<Path> readerFileNames = coordinator.collectProducerPaths(producerConfig.directory, producerConfig.ignoreFolderName);
+        final List<Path> readerFileNames = coordinator.collectProducerPaths(Paths.get(values.get("input.directory")), null);
         Iterator<Path> readerIt = readerFileNames.iterator();
-
-        while(readerIt.hasNext()) {
+        while (readerIt.hasNext()) {
             CountDownLatch done = new CountDownLatch(1);
             final Runnable producer;
-            if(producerConfig.noClients>1) {
-                List<MessageGenerator> msgProducers = new ArrayList<>(producerConfig.noClients);
-                for(int i=0; i < producerConfig.noClients; i++) {
-                    msgProducers.add(getMessageGenerator());
+            final int noOfClients = Integer.parseInt(values.get("output.clients.number"));
+            if (noOfClients > 1) {
+                List<MessageGenerator> msgProducers = new ArrayList<>(noOfClients);
+                for (int i=0; i < noOfClients; i++) {
+                    msgProducers.add(getMessageGenerator( values.get("output.format")));
                 }
-                producer = new MultiProducer(done,  readerIt.next(), msgProducers, producerConfig.adress, producerConfig.noClients, producerConfig.sendAtTimestamp);
+                producer = new MultiProducer(done,
+                        readerIt.next(),
+                        msgProducers,
+                        new InetSocketAddress(values.get("output.ip"), Integer.parseInt(values.get("output.port"))),
+                        noOfClients,
+                        "true".equals(values.get("output.realtime")));
 
-            } else{
-                producer = new Producer(done, readerIt.next(), getMessageGenerator(), producerConfig.adress, producerConfig.sendAtTimestamp);
+            } else {
+                producer = new Producer(done,
+                        readerIt.next(),
+                        getMessageGenerator( values.get("output.format")),
+                        new InetSocketAddress(values.get("output.ip"), Integer.parseInt(values.get("output.port"))),
+                        "true".equals(values.get("output.realtime")));
             }
-
             Thread producerThread = new Thread(producer);
-
             producerThread.start();
-
             try {
                 producerThread.join();
             } catch (InterruptedException e1) {
@@ -232,51 +195,47 @@ public class ServerChainSimulator {
     }
 
 
-    public void sendReceive(NetworkEndConfiguration producerConfig, List<NetworkEndConfiguration> consumerConfig) {
+    public void sendReceive(Map<String,String> senderValues, List<Map<String,String>> consumerConfig) {
+
         logger.info("1  sender 2 parallel receivers");
         Coordinator coordinator = new Coordinator();
-        final List<Path> readerFileNames = coordinator.collectProducerPaths(producerConfig.directory, producerConfig.ignoreFolderName);
-        for(Path x: readerFileNames) {
-            System.out.println("reader " + x);
-        }
-       /* final Path outputDir = generateConsumerRootDir(producerConfig.directory);
-        System.out.println("writer root " + outputDir);
-        final List<Path> writerFileNames = generateConsumerPaths(outputDir, readerFileNames);
-        for(Path threads: writerFileNames) {
-        	System.out.println("writer " + threads);
-        }*/
-        /*final Path outputDir = generateConsumerRootDir2(producerConfig.directory, consumerConfig.directory);
-        System.out.println("writer root " + outputDir);
-        final List<Path> writerFileNames = generateConsumerPaths2(producerConfig.directory, outputDir, readerFileNames);
-        for(Path threads: writerFileNames) {
-        	System.out.println("writer " + threads);
-        }*/
-        final Path outputDir1 = Coordinator.generateConsumerRootDir3(consumerConfig.get(0).directory);
+        final List<Path> readerFileNames = coordinator.collectProducerPaths(Paths.get(senderValues.get("input.directory")), null);
+
+        final Path outputDir1 = Coordinator.generateConsumerRootDir3(Paths.get(consumerConfig.get(0).get("output.directory")));
         System.out.println("output " +outputDir1);
-        final List<Path> writerFileNames1 = Coordinator.generateConsumerPaths3(outputDir1, readerFileNames, producerConfig.directory);
+        final List<Path> writerFileNames1 = Coordinator.generateConsumerPaths3(outputDir1, readerFileNames, Paths.get(senderValues.get("input.directory")));
 
-
-        final Path outputDir2 = Coordinator.generateConsumerRootDir3(consumerConfig.get(1).directory);
+        final Path outputDir2 = Coordinator.generateConsumerRootDir3(Paths.get(consumerConfig.get(1).get("output.directory")));
         System.out.println("output " +outputDir2);
-        final List<Path> writerFileNames2 = Coordinator.generateConsumerPaths3(outputDir2, readerFileNames, producerConfig.directory);
+        final List<Path> writerFileNames2 = Coordinator.generateConsumerPaths3(outputDir2, readerFileNames, Paths.get(senderValues.get("input.directory")));
 
-        //Iterator<Path> readerIt = readerFil for (Path path: producerInputPath) {eNames.iterator();
-        //Iterator<Path> writerIt = writerFileNames.iterator();
         CyclicBarrier barrier = new CyclicBarrier(4);
-        //while (readerIt.hasNext() && writerIt.hasNext()) {
         CountDownLatch done = new CountDownLatch(2);
-        NonBlockingConsumerEagerIn consumer1 = new NonBlockingConsumerEagerIn(writerFileNames1, getMessageReceiver(), consumerConfig.get(0).adress, barrier,null);
-        NonBlockingConsumerEagerIn consumer2 = new NonBlockingConsumerEagerIn(writerFileNames2, getMessageReceiver(), consumerConfig.get(1).adress, barrier,null);
+        System.out.println(consumerConfig);
+        NonBlockingConsumerEagerIn consumer1 = new NonBlockingConsumerEagerIn(writerFileNames1,
+                getMessageReceiver(consumerConfig.get(0).get("input.format")),
+                new InetSocketAddress(consumerConfig.get(0).get("input.ip"), Integer.parseInt(consumerConfig.get(0).get("input.port"))),
+                barrier,null);
+        NonBlockingConsumerEagerIn consumer2 = new NonBlockingConsumerEagerIn(writerFileNames2,
+                getMessageReceiver(consumerConfig.get(1).get("input.format")),
+                new InetSocketAddress(consumerConfig.get(1).get("input.ip"), Integer.parseInt(consumerConfig.get(1).get("input.port"))),
+                barrier,null);
         List<NonBlockingConsumerEagerIn> consumers = new ArrayList<>(2);
         consumers.add(consumer1);
         consumers.add(consumer2);
 
-        //ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumers);
-        ;
         List generators = new ArrayList<>(2);
-        generators.add(getMessageGenerator());
-        generators.add(getMessageGenerator());
-        PullPushMultiProducer producer = new PullPushMultiProducer(done, readerFileNames,generators  , producerConfig.adress, producerConfig.noClients, producerConfig.sendAtTimestamp, barrier, consumers);
+        generators.add(getMessageGenerator(senderValues.get("output.format")));
+        generators.add(getMessageGenerator(senderValues.get("output.format")));
+        PullPushMultiProducer producer =
+                new PullPushMultiProducer(done,
+                readerFileNames,
+                generators,
+                new InetSocketAddress(senderValues.get("output.ip"), Integer.parseInt(senderValues.get("output.port"))),
+                Integer.parseInt(senderValues.get("output.clients.number")),
+                "true".equals(senderValues.get("output.realtime")),
+                barrier,
+                consumers);
 
         Thread producerThread = new Thread(producer);
         Thread consumerThread1 = new Thread(consumer1);
@@ -312,14 +271,8 @@ public class ServerChainSimulator {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
-
         done.countDown();
-
-
-
         //}
         logger.info("All done!");
     }
-
-
 }
