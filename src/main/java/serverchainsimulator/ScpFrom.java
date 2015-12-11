@@ -21,8 +21,10 @@ public class ScpFrom{
 	      System.out.println("Connected");
 
             // exec 'scp -f rfile' remotely
-            String command = "scp -f "+remoteSrcFile;
+
             Channel channel = session.openChannel("exec");
+
+            String command = "scp -f "+remoteSrcFile;
             ((ChannelExec)channel).setCommand(command);
 
             // get I/O streams for remote scp

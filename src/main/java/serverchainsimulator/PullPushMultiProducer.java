@@ -149,6 +149,9 @@ public class PullPushMultiProducer implements Runnable {
                                 generator.write(line, buffer, sendAtTimestamps);
                                 buffer.flip();
                                 socketChannel.write(buffer);
+                                if(buffer.remaining() > 0) {
+                                    System.out.println("! remaining " + buffer.remaining() + " " + buffer.limit()+ " "+ buffer.position());
+                                }
                                 buffer.clear();
                             } catch (BufferOverflowException ex) {
                                 logger.error("Producer error", ex);
@@ -159,23 +162,23 @@ public class PullPushMultiProducer implements Runnable {
                     logger.error("Producer cannot read data ", ex);
                 }////////////////
                 try {
-                    Thread.sleep(1000 * 3);
+                    Thread.sleep(1000 * 5);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
                 try {
-                    logger.info("incrementAndGet ");
+                    //logger.info("incrementAndGet ");
                     int a = endOfBatch.incrementAndGet();
                     if(a==2) {
-                        logger.info("signaling ");
+                        //logger.info("signaling ");
                         for (NonBlockingConsumerEagerIn e : otherThread) {
                             e.signalOfBatch();
                         }
                     }
-                    logger.info("-> " + barrier.getNumberWaiting());
+                    //logger.info("-> " + barrier.getNumberWaiting());
                     barrier.await();
                     endOfBatch.decrementAndGet();
-                    logger.info("-> " + barrier.getNumberWaiting() +" -> ");
+                    //logger.info("-> " + barrier.getNumberWaiting() + " -> ");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {

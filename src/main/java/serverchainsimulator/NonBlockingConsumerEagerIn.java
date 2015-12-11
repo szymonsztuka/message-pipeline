@@ -88,7 +88,7 @@ public class NonBlockingConsumerEagerIn implements Runnable {
                                     try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("UTF-8"), StandardOpenOption.CREATE)) {
                                         long x = 0;
                                         long y = 0;
-                                        logger.info("awaiting 0 reads  " + x + " 1 reads " + y);
+                                        //logger.info("awaiting 0 reads  " + x + " 1 reads " + y);
 
                                         while (keySocketChannel.read(buffer) != -1) {
                                             // if ( ((threads+1) % 100000 ==0) || ((y+1) % 100000 == 0) ) {
@@ -125,9 +125,9 @@ public class NonBlockingConsumerEagerIn implements Runnable {
                                         if(otherThread!=null) {
                                             otherThread.signalBeginOfBatch();
                                         }
-                                        logger.info("-> " + barrier.getNumberWaiting());
+                                        //logger.info("-> " + barrier.getNumberWaiting());
                                         barrier.await();
-                                        logger.info("-> " + barrier.getNumberWaiting() +" -> ");
+                                        //logger.info("-> " + barrier.getNumberWaiting() +" -> ");
                                         process = true;
                                     } catch (InterruptedException e) {
                                         e.printStackTrace();

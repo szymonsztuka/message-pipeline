@@ -459,7 +459,7 @@ public class Coordinator {
         CyclicBarrier barrier = new CyclicBarrier(3);
         //while (readerIt.hasNext() && writerIt.hasNext()) {
         CountDownLatch done = new CountDownLatch(2);
-        RemoteShellScripTask consumer2 = new RemoteShellScripTask(consumer2Config.user, consumer2Config.host, consumer2Config.password, consumer2Config.sudo_pass, consumer2Config.command,  names,  barrier);
+        RemoteShellScripTask consumer2 = new RemoteShellScripTask(consumer2Config.user, consumer2Config.host, consumer2Config.password, consumer2Config.sudo_pass,  names,  barrier, new SimpleShellScriptGenerator());
         NonBlockingConsumerEagerIn consumer = new NonBlockingConsumerEagerIn(writerFileNames, getMessageReceiver(), consumerConfig.adress, barrier, consumer2);
         List<NonBlockingConsumerEagerIn> consumers = new ArrayList<>(1);
         consumers.add(consumer);
@@ -844,6 +844,13 @@ public class Coordinator {
 
     public List<Path>collectProducerPaths (Path dirOrFilePath, String ignore) {
 
+        if(Files.notExists(dirOrFilePath)) {
+            try {
+                Files.createDirectories(dirOrFilePath);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         if (Files.isDirectory(dirOrFilePath, LinkOption.NOFOLLOW_LINKS)) {
             RecursiveFileCollector walk= new RecursiveFileCollector(ignore);
             try {
@@ -1011,8 +1018,13 @@ public class Coordinator {
     public static List<Path> generateConsumerPaths3(Path outputDir, List<Path> producerInputPath, Path inputDir) {
         final List<Path> readerFileNames = new ArrayList<Path>();
         for (Path path: producerInputPath) {
-            Path outputSubPath = path.subpath(inputDir.getNameCount(), path.getNameCount());
-            Path newOne = outputDir.resolve(outputSubPath);
+            final Path newOne;
+            if(inputDir.getNameCount() != path.getNameCount()) {
+                Path outputSubPath = path.subpath(inputDir.getNameCount(), path.getNameCount());
+                newOne = outputDir.resolve(outputSubPath);}
+            else {
+                continue;
+            }
             readerFileNames.add(newOne);
             if (Files.notExists(newOne.getParent())) {
                 try {
@@ -1036,8 +1048,9 @@ public class Coordinator {
             if (dir.getFileName().toString().equals(ignore)) {
                 System.out.println("skipping" + dir.getFileName().toString());
                 return FileVisitResult.SKIP_SUBTREE;
-            } else
+            } else {
                 return super.preVisitDirectory(dir, attrs);
+            }
         }
 
         @Override
