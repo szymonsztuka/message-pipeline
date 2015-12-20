@@ -342,7 +342,92 @@ public abstract class ServerChainSimulator {
         logger.info("All done!");
     }
 
+    public void sendReceiveInterpreter(List<Map<String,String>> senderConfig, List<Map<String,String>> consumerConfig) {
 
+        logger.info( senderConfig.size() + " sender(s) " + consumerConfig.size() + " parallel receivers");
+        Coordinator coordinator = new Coordinator();
+        final List<Path> readerFileNames = coordinator.collectProducerPaths(Paths.get(senderConfig.get(0).get("input.directory")), null);
+
+        List<NonBlockingConsumerEagerInDecoupled> consumers = new ArrayList<>(consumerConfig.size());
+        List<Thread> consumersThreads = new ArrayList<>(consumerConfig.size());
+
+
+        CyclicBarrier consumerStartBarrier = new CyclicBarrier(consumerConfig.size() + 1);
+        CyclicBarrier consumerStopBarrier = new CyclicBarrier(consumerConfig.size() + 1);
+        CyclicBarrier producerStartBarrier = new CyclicBarrier(senderConfig.size() + 1);
+        CyclicBarrier producerStopBarrier = new CyclicBarrier(senderConfig.size() + 1, () -> {});
+
+        for (Map<String,String> node: consumerConfig) {
+            final Path outputDir = Coordinator.generateConsumerRootDir3(Paths.get(node.get("output.directory")));
+            System.out.println("output " + outputDir);
+            final List<Path> writerFileNames = Coordinator.generateConsumerPaths3(outputDir, readerFileNames, Paths.get(senderConfig.get(0).get("input.directory")));
+            NonBlockingConsumerEagerInDecoupled consumer = new NonBlockingConsumerEagerInDecoupled(writerFileNames,
+                    getMessageReceiver(node.get("input.format")),
+                    new InetSocketAddress(node.get("input.ip"), Integer.parseInt(node.get("input.port"))),
+                    consumerStartBarrier,
+                    consumerStopBarrier);
+            consumers.add(consumer);
+            consumersThreads.add(new Thread(consumer));
+        }
+
+        List<PullPushMultiProducerDecoupled> producers = new ArrayList<>(senderConfig.size());
+        List<Thread> producersThreads = new ArrayList<>(senderConfig.size());
+
+        for (Map<String,String> node: senderConfig) {
+            List generators = new ArrayList<>(2);
+            generators.add(getMessageGenerator(node.get("output.format")));
+            generators.add(getMessageGenerator(node.get("output.format")));
+            PullPushMultiProducerDecoupled producer = new PullPushMultiProducerDecoupled(
+                            readerFileNames,
+                            generators,
+                            new InetSocketAddress(node.get("output.ip"), Integer.parseInt(node.get("output.port"))),
+                            Integer.parseInt(node.get("output.clients.number")),
+                            "true".equals(node.get("output.realtime")),
+                            producerStartBarrier,
+                            producerStopBarrier);
+            producers.add(producer);
+            producersThreads.add(new Thread(producer));
+        }
+
+        LayerController controller = new LayerController(consumerStartBarrier, consumerStopBarrier, consumers, producerStartBarrier, producerStopBarrier);
+        Thread controllerThread = new Thread(controller);
+        controllerThread.start();
+
+        System.out.println("Consumer start!");
+        consumersThreads.forEach(Thread::start);
+
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("Producer start!");
+        producersThreads.forEach(Thread::start);
+
+        producersThreads.forEach(t -> {
+            try {
+                t.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+
+        try {
+            Thread.sleep(1000 * 5);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("Awaiting join consumer!");
+        consumersThreads.forEach(t -> {
+            try {
+                t.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        //done.countDown();
+        logger.info("All done!");
+    }
     public void sendReceiveThreeLayers(Map<String,String> senderValues, List<Map<String,String>> consumerConfig, List<Map<String,String>> consumerConfigThirdLayer) {
 
         logger.info("1  sender 2 parallel  2 scripts");

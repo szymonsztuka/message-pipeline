@@ -292,7 +292,7 @@ public class Coordinator {
         List<NonBlockingConsumerEagerIn> consumers = new ArrayList<>(1);
         consumers.add(consumer);
         ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumers);
-            //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.adress);
+            //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.address);
            
 
             Thread producerThread = new Thread(producer);
@@ -374,7 +374,7 @@ public class Coordinator {
         consumers.add(consumer1);
         consumers.add(consumer2);
 
-        //ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumers);
+        //ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.address, barrier, consumers);
 ;
         List generators = new ArrayList<>(2);
         generators.add(getMessageGenerator());
@@ -464,7 +464,7 @@ public class Coordinator {
         List<NonBlockingConsumerEagerIn> consumers = new ArrayList<>(1);
         consumers.add(consumer);
         ProducerPullInPushOut producer = new ProducerPullInPushOut(done, readerFileNames, getMessageGenerator(), producerConfig.adress, barrier, consumers);
-        //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.adress);
+        //PullNonBlockingConsumer consumer = new PullNonBlockingConsumer(writerIt.next(), getPullMessageReceiver(), consumerConfig.address);
 
 
         Thread producerThread = new Thread(producer);
@@ -822,7 +822,7 @@ public class Coordinator {
     public void receive(NetworkEndConfiguration consumerConfig) {
         logger.info("echo receiver");
 
-        /*EchoConsumer consumer = new EchoConsumer(getMessageReceiver(), consumerConfig.adress);
+        /*EchoConsumer consumer = new EchoConsumer(getMessageReceiver(), consumerConfig.address);
 
         Thread consumerThread = new Thread(consumer);
 
