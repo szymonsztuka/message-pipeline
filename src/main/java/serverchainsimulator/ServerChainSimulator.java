@@ -389,7 +389,7 @@ public abstract class ServerChainSimulator {
             producersThreads.add(new Thread(producer));
         }
 
-        LayerController controller = new LayerController(consumerStartBarrier, consumerStopBarrier, consumers, producerStartBarrier, producerStopBarrier);
+        LayerController controller = new LayerController(consumerStartBarrier, consumerStopBarrier, consumers, producerStartBarrier, producerStopBarrier, producers);
         Thread controllerThread = new Thread(controller);
         controllerThread.start();
 
