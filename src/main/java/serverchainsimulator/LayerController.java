@@ -1,5 +1,8 @@
 package serverchainsimulator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
@@ -14,6 +17,8 @@ public class LayerController implements Runnable {
     private final CyclicBarrier layer2batchEnd;
     private final List<PullPushMultiProducerDecoupled> producers;
 
+    private static final Logger logger = LoggerFactory.getLogger(LayerController.class);
+
     public LayerController(CyclicBarrier layer1batchStart, CyclicBarrier layer1batchEnd, List<NonBlockingConsumerEagerInDecoupled> consumers, CyclicBarrier layer2batchStart, CyclicBarrier layer2batchEnd, List<PullPushMultiProducerDecoupled> producers) {
         this.layer1batchStart = layer1batchStart;
         this.layer1batchEnd = layer1batchEnd;
@@ -26,6 +31,7 @@ public class LayerController implements Runnable {
     @Override
     public void run() {
         while (!allProducersDone()) {
+            logger.info("batch start");
             try {
                 layer1batchStart.await();
             } catch (InterruptedException e) {
@@ -55,7 +61,9 @@ public class LayerController implements Runnable {
             } catch (BrokenBarrierException e) {
                 e.printStackTrace();
             }
+
         }
+        logger.info("done");
     }
 
     private boolean allProducersDone() {

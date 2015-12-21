@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
-public class NonBlockingConsumerEagerInDecoupled implements Runnable {
+public class NonBlockingConsumerEagerInDecoupled implements Runnable, Stopable {
     private static final Logger logger = LoggerFactory.getLogger(NonBlockingConsumerEagerInDecoupled.class);
 
     public final InetSocketAddress address;

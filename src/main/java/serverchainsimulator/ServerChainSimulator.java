@@ -163,7 +163,8 @@ public abstract class ServerChainSimulator {
             } else {
                 Map<String, Map<String, String>> fileInputTcpServerSender = new TreeMap<>();
                 Map<String, Map<String, String>> tcpClientReceiverFileOutput = new TreeMap<>();
-                Map<String, Map<String, String>> remoteSrcipts = new TreeMap<>();
+                Map<String, Map<String, String>> remoteScripts = new TreeMap<>();
+                Map<String, Map<String, String>> process = new TreeMap<>();
 
                 for (Map.Entry<String, Map<String, String>> elem : result2.entrySet()) {
                     Map<String, String> values = elem.getValue();
@@ -182,7 +183,9 @@ public abstract class ServerChainSimulator {
                     } else if (values.containsKey("type") && values.containsKey("host") && values.containsKey("user") && values.containsKey("password")
                             && values.get("type").equals("remotescript")
                             ) {
-                        remoteSrcipts.put(elem.getKey(), elem.getValue());
+                        remoteScripts.put(elem.getKey(), elem.getValue());
+                    } else if(values.containsKey("type") && values.get("type").equals("process")){
+                        process.put(elem.getKey(), elem.getValue());
                     } else {
                         System.out.print("\n !!!!!!!!!! configuration skipped '" + values + "'\n");
                     }
@@ -193,23 +196,26 @@ public abstract class ServerChainSimulator {
                     System.out.println("\n\ntcpClientReceiverFileOutput " + tcpClientReceiverFileOutput.size());
                     System.out.println(tcpClientReceiverFileOutput);
 
-                    if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() == 0 && remoteSrcipts.size() == 0) {
+                    if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() == 0 && remoteScripts.size() == 0) {
                         Map<String, String> values = fileInputTcpServerSender.entrySet().iterator().next().getValue();
                         send(values);
-                    } else if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() == 2 && remoteSrcipts.size() == 0) {
+                    } else if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() == 2 && remoteScripts.size() == 0) {
                         Map<String, String> senderValues = fileInputTcpServerSender.entrySet().iterator().next().getValue();
                         Iterator<Map.Entry<String, Map<String, String>>> receiverIt = tcpClientReceiverFileOutput.entrySet().iterator();
                         List<Map<String, String>> consumerConfigs = new ArrayList<>(2);
                         consumerConfigs.add(receiverIt.next().getValue());
                         consumerConfigs.add(receiverIt.next().getValue());
-                        sendReceive(senderValues, consumerConfigs);
-                    } else if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() == 2 && remoteSrcipts.size() == 2) {
+                        //sendReceive(senderValues, consumerConfigs);
+                        List<Map<String, String>> producerValues = new ArrayList<>(1);
+                        producerValues.add(senderValues);
+                        sendReceiveInterpreter(producerValues, consumerConfigs);
+                    } else if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() == 2 && remoteScripts.size() == 2) {
                         Map<String, String> senderValues = fileInputTcpServerSender.entrySet().iterator().next().getValue();
                         Iterator<Map.Entry<String, Map<String, String>>> receiverIt = tcpClientReceiverFileOutput.entrySet().iterator();
                         List<Map<String, String>> consumerConfigs = new ArrayList<>(2);
                         consumerConfigs.add(receiverIt.next().getValue());
                         consumerConfigs.add(receiverIt.next().getValue());
-                        Iterator<Map.Entry<String, Map<String, String>>> thirdLayerIt = remoteSrcipts.entrySet().iterator();
+                        Iterator<Map.Entry<String, Map<String, String>>> thirdLayerIt = remoteScripts.entrySet().iterator();
                         List<Map<String, String>> thirdLayer = new ArrayList<>(2);
                         thirdLayer.add(thirdLayerIt.next().getValue());
                         thirdLayer.add(thirdLayerIt.next().getValue());
@@ -351,11 +357,10 @@ public abstract class ServerChainSimulator {
         List<NonBlockingConsumerEagerInDecoupled> consumers = new ArrayList<>(consumerConfig.size());
         List<Thread> consumersThreads = new ArrayList<>(consumerConfig.size());
 
-
         CyclicBarrier consumerStartBarrier = new CyclicBarrier(consumerConfig.size() + 1);
         CyclicBarrier consumerStopBarrier = new CyclicBarrier(consumerConfig.size() + 1);
         CyclicBarrier producerStartBarrier = new CyclicBarrier(senderConfig.size() + 1);
-        CyclicBarrier producerStopBarrier = new CyclicBarrier(senderConfig.size() + 1, () -> {});
+        CyclicBarrier producerStopBarrier = new CyclicBarrier(senderConfig.size() + 1);
 
         for (Map<String,String> node: consumerConfig) {
             final Path outputDir = Coordinator.generateConsumerRootDir3(Paths.get(node.get("output.directory")));
@@ -374,9 +379,12 @@ public abstract class ServerChainSimulator {
         List<Thread> producersThreads = new ArrayList<>(senderConfig.size());
 
         for (Map<String,String> node: senderConfig) {
-            List generators = new ArrayList<>(2);
-            generators.add(getMessageGenerator(node.get("output.format")));
-            generators.add(getMessageGenerator(node.get("output.format")));
+            final int clientsNumber = Integer.parseInt(node.get("output.clients.number")) > 0 ? Integer.parseInt(node.get("output.clients.number")) : 1;
+            List generators = new ArrayList<>(clientsNumber);
+            for (int j=0; j < clientsNumber; j++) {
+                generators.add(getMessageGenerator(node.get("output.format")));
+            }
+
             PullPushMultiProducerDecoupled producer = new PullPushMultiProducerDecoupled(
                             readerFileNames,
                             generators,
@@ -389,8 +397,14 @@ public abstract class ServerChainSimulator {
             producersThreads.add(new Thread(producer));
         }
 
-        LayerController controller = new LayerController(consumerStartBarrier, consumerStopBarrier, consumers, producerStartBarrier, producerStopBarrier, producers);
-        Thread controllerThread = new Thread(controller);
+        //LayerController controller = new LayerController(consumerStartBarrier, consumerStopBarrier, consumers, producerStartBarrier, producerStopBarrier, producers);
+
+        LayerControllerRecursiveHead terminalLayer = new LayerControllerRecursiveHead(producerStartBarrier, producerStopBarrier, producers);
+        LayerControllerRecursive topLayer = new LayerControllerRecursive(consumerStartBarrier, consumerStopBarrier, consumers, terminalLayer);
+
+        //Thread controllerThread = new Thread(controller);
+        Thread controllerThread = new Thread(topLayer);
+
         controllerThread.start();
 
         System.out.println("Consumer start!");
@@ -413,7 +427,7 @@ public abstract class ServerChainSimulator {
         });
 
         try {
-            Thread.sleep(1000 * 5);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -512,15 +526,17 @@ public abstract class ServerChainSimulator {
         consumers.add(consumer1);
         consumers.add(consumer2);
 
-        List generators = new ArrayList<>(2);
-        generators.add(getMessageGenerator(senderValues.get("output.format")));
-        generators.add(getMessageGenerator(senderValues.get("output.format")));
+        final int clientsNumber = Integer.parseInt(senderValues.get("output.clients.number")) > 0 ? Integer.parseInt(senderValues.get("output.clients.number")) : 1;
+        List generators = new ArrayList<>(clientsNumber);
+        for(int j=0; j < clientsNumber; j++) {
+            generators.add(getMessageGenerator(senderValues.get("output.format")));
+        }
         PullPushMultiProducer producer =
                 new PullPushMultiProducer(done,
                         readerFileNames,
                         generators,
                         new InetSocketAddress(senderValues.get("output.ip"), Integer.parseInt(senderValues.get("output.port"))),
-                        Integer.parseInt(senderValues.get("output.clients.number")),
+                        clientsNumber,
                         "true".equals(senderValues.get("output.realtime")),
                         barrier,
                         consumers);

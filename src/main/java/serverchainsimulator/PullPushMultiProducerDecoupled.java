@@ -16,13 +16,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class PullPushMultiProducerDecoupled implements Runnable {
+public class PullPushMultiProducerDecoupled implements Runnable, SelfStopable {
 
     private static final Logger logger = LoggerFactory.getLogger(PullPushMultiProducerDecoupled.class);
     final private List<MessageGenerator> generators;
@@ -112,7 +113,7 @@ public class PullPushMultiProducerDecoupled implements Runnable {
                 }
             }
 
-            for (Thread x : realThreads) {
+            /*for (Thread x : realThreads) {
                 System.out.println("Awaiting " + x.toString());
                 try {
                     x.join();
@@ -120,9 +121,10 @@ public class PullPushMultiProducerDecoupled implements Runnable {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
-            }
+            }*/
             serverSocketChannel.close();
-
+            done = true;
+            logger.info("Producer is done! ");
         } catch (IOException ex) {
             logger.error(ex.getMessage(), ex);
             try {
@@ -179,8 +181,10 @@ public class PullPushMultiProducerDecoupled implements Runnable {
             logger.info("SubProducer opening " + paths);
             String line;
             ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
-
-            for (Path path : paths) {
+            Iterator<Path> pathIt = paths.iterator();
+            while(pathIt.hasNext()) {
+                Path path = pathIt.next();
+            //for (Path path : paths) {
                 try {
                     Thread.sleep(1000 * 3);
                 } catch (InterruptedException e) {
@@ -220,7 +224,10 @@ public class PullPushMultiProducerDecoupled implements Runnable {
                     e.printStackTrace();
                 }
                 try {
-                    internalBatchEnd.await();
+                     if(!pathIt.hasNext()) {
+                         internalDone = true;
+                     }
+                     internalBatchEnd.await();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {
