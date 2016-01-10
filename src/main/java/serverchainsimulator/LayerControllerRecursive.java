@@ -17,16 +17,18 @@ public class LayerControllerRecursive implements Runnable, LayerControllerDecora
 
     final private LayerControllerDecorator next;
     private static final Logger logger = LoggerFactory.getLogger(LayerControllerRecursive.class);
+    private final String name;
 
-    public LayerControllerRecursive(CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Stopable> nodes, LayerControllerDecorator next) {
+    public LayerControllerRecursive(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Stopable> nodes, LayerControllerDecorator next) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.nodes = nodes;
         this.next = next;
+        this.name = name;
     }
 
     public boolean step(){
-        logger.info("batch start");
+        logger.info(name + " batch start awaits !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         boolean result =false;
         try {
             batchStart.await();
@@ -35,10 +37,12 @@ public class LayerControllerRecursive implements Runnable, LayerControllerDecora
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
+        logger.info(name + " batch start got througth awaits !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         if(next!=null) {
             result = next.step();
         }
         nodes.forEach(Stopable::signalBatchEnd);
+        logger.info(name + " batch end awaits !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         try {
             batchEnd.await();
         } catch (InterruptedException e) {
@@ -46,6 +50,7 @@ public class LayerControllerRecursive implements Runnable, LayerControllerDecora
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
+        logger.info(name + " batch end got througth awaits !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         return result;
     }
 

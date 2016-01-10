@@ -164,7 +164,7 @@ public abstract class ServerChainSimulator {
                 Map<String, Map<String, String>> fileInputTcpServerSender = new TreeMap<>();
                 Map<String, Map<String, String>> tcpClientReceiverFileOutput = new TreeMap<>();
                 Map<String, Map<String, String>> remoteScripts = new TreeMap<>();
-                Map<String, Map<String, String>> process = new TreeMap<>();
+                Map<String, Map<String, String>> processes = new TreeMap<>();
 
                 for (Map.Entry<String, Map<String, String>> elem : result2.entrySet()) {
                     Map<String, String> values = elem.getValue();
@@ -184,8 +184,8 @@ public abstract class ServerChainSimulator {
                             && values.get("type").equals("remotescript")
                             ) {
                         remoteScripts.put(elem.getKey(), elem.getValue());
-                    } else if(values.containsKey("type") && values.get("type").equals("process")){
-                        process.put(elem.getKey(), elem.getValue());
+                    } else if(values.containsKey("type") && values.get("type").equals("javaprocess")){
+                        processes.put(elem.getKey(), elem.getValue());
                     } else {
                         System.out.print("\n !!!!!!!!!! configuration skipped '" + values + "'\n");
                     }
@@ -199,16 +199,20 @@ public abstract class ServerChainSimulator {
                     if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() == 0 && remoteScripts.size() == 0) {
                         Map<String, String> values = fileInputTcpServerSender.entrySet().iterator().next().getValue();
                         send(values);
-                    } else if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() == 2 && remoteScripts.size() == 0) {
+                    } else if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() > 0 && remoteScripts.size() == 0) {
                         Map<String, String> senderValues = fileInputTcpServerSender.entrySet().iterator().next().getValue();
                         Iterator<Map.Entry<String, Map<String, String>>> receiverIt = tcpClientReceiverFileOutput.entrySet().iterator();
                         List<Map<String, String>> consumerConfigs = new ArrayList<>(2);
                         consumerConfigs.add(receiverIt.next().getValue());
-                        consumerConfigs.add(receiverIt.next().getValue());
+                        if(receiverIt.hasNext()) { consumerConfigs.add(receiverIt.next().getValue()); }
                         //sendReceive(senderValues, consumerConfigs);
                         List<Map<String, String>> producerValues = new ArrayList<>(1);
                         producerValues.add(senderValues);
-                        sendReceiveInterpreter(producerValues, consumerConfigs);
+                        List<Map<String, String>> processesList = new ArrayList<>(processes.size());
+                        for (Map<String, String> x : processes.values()) {
+                            processesList.add(x);
+                        }
+                        sendReceiveInterpreter(producerValues, consumerConfigs, processesList);
                     } else if (fileInputTcpServerSender.size() == 1 && tcpClientReceiverFileOutput.size() == 2 && remoteScripts.size() == 2) {
                         Map<String, String> senderValues = fileInputTcpServerSender.entrySet().iterator().next().getValue();
                         Iterator<Map.Entry<String, Map<String, String>>> receiverIt = tcpClientReceiverFileOutput.entrySet().iterator();
@@ -348,97 +352,133 @@ public abstract class ServerChainSimulator {
         logger.info("All done!");
     }
 
-    public void sendReceiveInterpreter(List<Map<String,String>> senderConfig, List<Map<String,String>> consumerConfig) {
+    public void sendReceiveInterpreter(List<Map<String,String>> senderConfig, List<Map<String,String>> consumerConfig, List<Map<String,String>> processes) {
 
         logger.info( senderConfig.size() + " sender(s) " + consumerConfig.size() + " parallel receivers");
         Coordinator coordinator = new Coordinator();
-        final List<Path> readerFileNames = coordinator.collectProducerPaths(Paths.get(senderConfig.get(0).get("input.directory")), null);
+        final List<Path> allReaderFileNames = coordinator.collectProducerPaths(Paths.get(senderConfig.get(0).get("input.directory")), null);
+        Iterator<Path> it = allReaderFileNames.iterator();
+        Path a = it.next();
+        int i =1;
+        while (it.hasNext()) {
+            final List<Path> readerFileNames = new ArrayList<>(30);
+            readerFileNames.add(a);
+            while (it.hasNext()) {
+                Path b = it.next();
+                if (a.getParent().equals(b.getParent())
+                        || processes.isEmpty()
+                        || (!processes.isEmpty() && processes.get(0).containsKey("restart")) && !processes.get(0).get("restart").equals("on-new-folder")){
+                    readerFileNames.add(b);
+                    a = b;
+                } else {
+                    a = b;
+                    break;
+                }
+            }
+            System.out.println(i+ " " + readerFileNames); i++;
+            List<NonBlockingConsumerEagerInDecoupled> consumers = new ArrayList<>(consumerConfig.size());
+            List<Thread> consumersThreads = new ArrayList<>(consumerConfig.size());
 
-        List<NonBlockingConsumerEagerInDecoupled> consumers = new ArrayList<>(consumerConfig.size());
-        List<Thread> consumersThreads = new ArrayList<>(consumerConfig.size());
+            CyclicBarrier consumerStartBarrier = new CyclicBarrier(consumerConfig.size() + 1);
+            CyclicBarrier consumerStopBarrier = new CyclicBarrier(consumerConfig.size() + 1);
+            CyclicBarrier producerStartBarrier = new CyclicBarrier(senderConfig.size() + 1);
+            CyclicBarrier producerStopBarrier = new CyclicBarrier(senderConfig.size() + 1);
 
-        CyclicBarrier consumerStartBarrier = new CyclicBarrier(consumerConfig.size() + 1);
-        CyclicBarrier consumerStopBarrier = new CyclicBarrier(consumerConfig.size() + 1);
-        CyclicBarrier producerStartBarrier = new CyclicBarrier(senderConfig.size() + 1);
-        CyclicBarrier producerStopBarrier = new CyclicBarrier(senderConfig.size() + 1);
-
-        for (Map<String,String> node: consumerConfig) {
-            final Path outputDir = Coordinator.generateConsumerRootDir3(Paths.get(node.get("output.directory")));
-            System.out.println("output " + outputDir);
-            final List<Path> writerFileNames = Coordinator.generateConsumerPaths3(outputDir, readerFileNames, Paths.get(senderConfig.get(0).get("input.directory")));
-            NonBlockingConsumerEagerInDecoupled consumer = new NonBlockingConsumerEagerInDecoupled(writerFileNames,
-                    getMessageReceiver(node.get("input.format")),
-                    new InetSocketAddress(node.get("input.ip"), Integer.parseInt(node.get("input.port"))),
-                    consumerStartBarrier,
-                    consumerStopBarrier);
-            consumers.add(consumer);
-            consumersThreads.add(new Thread(consumer));
-        }
-
-        List<PullPushMultiProducerDecoupled> producers = new ArrayList<>(senderConfig.size());
-        List<Thread> producersThreads = new ArrayList<>(senderConfig.size());
-
-        for (Map<String,String> node: senderConfig) {
-            final int clientsNumber = Integer.parseInt(node.get("output.clients.number")) > 0 ? Integer.parseInt(node.get("output.clients.number")) : 1;
-            List generators = new ArrayList<>(clientsNumber);
-            for (int j=0; j < clientsNumber; j++) {
-                generators.add(getMessageGenerator(node.get("output.format")));
+            for (Map<String, String> node : consumerConfig) {
+                final Path outputDir = Coordinator.generateConsumerRootDir3(Paths.get(node.get("output.directory")));
+                System.out.println("output " + outputDir);
+                final List<Path> writerFileNames = Coordinator.generateConsumerPaths3(outputDir, readerFileNames, Paths.get(senderConfig.get(0).get("input.directory")));
+                NonBlockingConsumerEagerInDecoupled consumer = new NonBlockingConsumerEagerInDecoupled(writerFileNames,
+                        getMessageReceiver(node.get("input.format")),
+                        new InetSocketAddress(node.get("input.ip"), Integer.parseInt(node.get("input.port"))),
+                        consumerStartBarrier,
+                        consumerStopBarrier);
+                consumers.add(consumer);
+                consumersThreads.add(new Thread(consumer));
             }
 
-            PullPushMultiProducerDecoupled producer = new PullPushMultiProducerDecoupled(
-                            readerFileNames,
-                            generators,
-                            new InetSocketAddress(node.get("output.ip"), Integer.parseInt(node.get("output.port"))),
-                            Integer.parseInt(node.get("output.clients.number")),
-                            "true".equals(node.get("output.realtime")),
-                            producerStartBarrier,
-                            producerStopBarrier);
-            producers.add(producer);
-            producersThreads.add(new Thread(producer));
-        }
+            List<PullPushMultiProducerDecoupled> producers = new ArrayList<>(senderConfig.size());
+            List<Thread> producersThreads = new ArrayList<>(senderConfig.size());
 
-        //LayerController controller = new LayerController(consumerStartBarrier, consumerStopBarrier, consumers, producerStartBarrier, producerStopBarrier, producers);
+            for (Map<String, String> node : senderConfig) {
+                final int clientsNumber = Integer.parseInt(node.get("output.clients.number")) > 0 ? Integer.parseInt(node.get("output.clients.number")) : 1;
+                List generators = new ArrayList<>(clientsNumber);
+                for (int j = 0; j < clientsNumber; j++) {
+                    generators.add(getMessageGenerator(node.get("output.format")));
+                }
 
-        LayerControllerRecursiveHead terminalLayer = new LayerControllerRecursiveHead(producerStartBarrier, producerStopBarrier, producers);
-        LayerControllerRecursive topLayer = new LayerControllerRecursive(consumerStartBarrier, consumerStopBarrier, consumers, terminalLayer);
+                PullPushMultiProducerDecoupled producer = new PullPushMultiProducerDecoupled(
+                        readerFileNames,
+                        generators,
+                        new InetSocketAddress(node.get("output.ip"), Integer.parseInt(node.get("output.port"))),
+                        Integer.parseInt(node.get("output.clients.number")),
+                        "true".equals(node.get("output.realtime")),
+                        producerStartBarrier,
+                        producerStopBarrier);
+                producers.add(producer);
+                producersThreads.add(new Thread(producer));
+            }
 
-        //Thread controllerThread = new Thread(controller);
-        Thread controllerThread = new Thread(topLayer);
+            //LayerController controller = new LayerController(consumerStartBarrier, consumerStopBarrier, consumers, producerStartBarrier, producerStopBarrier, producers);
 
-        controllerThread.start();
+            LayerControllerRecursiveHead terminalLayer = new LayerControllerRecursiveHead("input-simulators", producerStartBarrier, producerStopBarrier, producers);
+            LayerControllerRecursive topLayer = new LayerControllerRecursive("output-captures", consumerStartBarrier, consumerStopBarrier, consumers, terminalLayer);
+            final Thread controllerThread;
+            if (processes.size() > 0) {
+                List<ProcesssTask> bootstraps = new ArrayList<>(processes.size());
+                List<Thread> bootstrapThreads = new ArrayList<>(processes.size());
+                CyclicBarrier batchStart = new CyclicBarrier(processes.size() + 1);
+                CyclicBarrier batchEnd = new CyclicBarrier(processes.size() + 1);
+                for (Map<String, String> node : processes) {
+                    ProcesssTask process = new ProcesssTask(node.get("classpath"), node.get("jvmArguments").split(" "), node.get("mainClass"),
+                            node.get("programArguments").split(" "), batchStart, batchEnd, readerFileNames.size());
+                    bootstraps.add(process);
+                    bootstrapThreads.add(new Thread(process));
+                }
+                LayerControllerRecursiveStatefull processesLayer = new LayerControllerRecursiveStatefull("parsers " + bootstraps.size(), batchStart, batchEnd, bootstraps, topLayer);
+                controllerThread = new Thread(processesLayer);
+                controllerThread.start();
+                bootstrapThreads.forEach(Thread::start);
+            } else {
+                //Thread controllerThread = new Thread(controller);
+                controllerThread = new Thread(topLayer);
+                controllerThread.start();
+            }
 
-        System.out.println("Consumer start!");
-        consumersThreads.forEach(Thread::start);
 
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        System.out.println("Producer start!");
-        producersThreads.forEach(Thread::start);
+            //System.out.println("Consumer start!");
+            consumersThreads.forEach(Thread::start);
 
-        producersThreads.forEach(t -> {
             try {
-                t.join();
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        });
+            //System.out.println("Producer start!");
+            producersThreads.forEach(Thread::start);
 
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        System.out.println("Awaiting join consumer!");
-        consumersThreads.forEach(t -> {
+            producersThreads.forEach(t -> {
+                try {
+                    t.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+
             try {
-                t.join();
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        });
+            //System.out.println("Awaiting join consumer!");
+            consumersThreads.forEach(t -> {
+                try {
+                    t.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
         //done.countDown();
         logger.info("All done!");
     }

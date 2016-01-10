@@ -60,7 +60,7 @@ public class NonBlockingConsumerEagerInDecoupled implements Runnable, Stopable {
                 socketChannel.register(selector, SelectionKey.OP_CONNECT);
                 socketChannel.connect(address);
                 logger.info("Consumer: " + socketChannel.getRemoteAddress());
-                while (selector.select(1000) > 0) {
+                while (selector.select(10000) > 0) {
                     Set keys = selector.selectedKeys();
                     Iterator its = keys.iterator();
                     while (its.hasNext()) {
@@ -134,6 +134,7 @@ public class NonBlockingConsumerEagerInDecoupled implements Runnable, Stopable {
                         }
                     }
                 }
+                logger.debug("!!!!!!!!!!!!!!!!!! selector is done !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
             } else {
                 logger.warn("The socket channel or selector cannot be opened!");
             }
