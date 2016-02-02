@@ -58,7 +58,6 @@ public class PullConsumer implements Runnable, Stoppable {
                 socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
                 socketChannel.register(selector, SelectionKey.OP_CONNECT);
                 socketChannel.connect(address);
-                logger.info("connection " + address + " -> " +socketChannel.getRemoteAddress());
                 while (selector.select(10000) > 0) {
                     Set keys = selector.selectedKeys();
                     Iterator its = keys.iterator();
@@ -71,6 +70,7 @@ public class PullConsumer implements Runnable, Stoppable {
                                 if (keySocketChannel.isConnectionPending()) {
                                     keySocketChannel.finishConnect();
                                 }
+                                logger.info("connection " + socketChannel.getLocalAddress() + " -> " + socketChannel.getRemoteAddress());
                                 for (Path path : paths) {
                                     logger.trace("connection " + path);
                                     try {
