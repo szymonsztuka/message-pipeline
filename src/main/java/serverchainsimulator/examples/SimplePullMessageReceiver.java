@@ -1,7 +1,6 @@
 package serverchainsimulator.examples;
 
-import serverchainsimulator.MessageReceiver;
-import serverchainsimulator.PullMessageReceiver;
+import serverchainsimulator.content.PullMessageReceiver;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
