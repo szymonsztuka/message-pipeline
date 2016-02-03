@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import messagepipeline.message.MessageGenerator;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -37,10 +38,11 @@ public class PushProducer implements Runnable, LeafNode {
 
     final private CyclicBarrier internalBatchStart;
     final private CyclicBarrier internalBatchEnd;
+    final private String name;
 
-    public PushProducer(String directory, List<String> messagePaths, List<MessageGenerator> messageGenerators, InetSocketAddress address, boolean sendAtTimestamps, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
+    public PushProducer(String name, String directory, List<String> messagePaths, List<MessageGenerator> messageGenerators, InetSocketAddress address, boolean sendAtTimestamps, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
         final Path outputDir = Paths.get(directory);
-        this.paths = messagePaths.stream().map(s -> Paths.get(outputDir + s)).collect(Collectors.toList());
+        this.paths = messagePaths.stream().map(s -> Paths.get(outputDir + File.separator + s)).collect(Collectors.toList());
         this.generators = messageGenerators;
         this.address = address;
         this.sendAtTimestamps = sendAtTimestamps;
@@ -48,6 +50,7 @@ public class PushProducer implements Runnable, LeafNode {
         this.batchEnd = batchEnd;
         this.internalBatchStart = new CyclicBarrier(this.generators.size() + 1);
         this.internalBatchEnd = new CyclicBarrier(this.generators.size() + 1);
+        this.name = name;
     }
 
     public void run() {
@@ -69,7 +72,7 @@ public class PushProducer implements Runnable, LeafNode {
                         SubProducer subProducer = new SubProducer(socketChannel, paths, generators.get(i), internalBatchStart, internalBatchEnd);
                         threads.add(subProducer);
                         Thread subThread = new Thread(subProducer);
-                        subThread.setName("producer_" + i);
+                        subThread.setName(name + "_" + i);
                         subThread.start();
                         realThreads.add(subThread);
                     } catch (IOException ex) {
@@ -160,66 +163,68 @@ public class PushProducer implements Runnable, LeafNode {
             String line;
             ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
             Iterator<Path> pathIt = paths.iterator();
-            for (Path path : paths) {
-                logger.trace("Producer opening " + path);
-                try {
-                    Thread.sleep(1000 * 3);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                try {
-                    internalBatchStart.await();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } catch (BrokenBarrierException e) {
-                    e.printStackTrace();
-                }
+            while(pathIt.hasNext()) {
+                Path path = pathIt.next();
+                    logger.trace("Producer opening " + path);
+                    try {
+                        Thread.sleep(1000 * 3);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+                        internalBatchStart.await();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (BrokenBarrierException e) {
+                        e.printStackTrace();
+                    }
 
-                try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
-                    //logger.trace("Producer receiving " + path);
-                    while ((line = reader.readLine()) != null) {
-                        if (line.length() > 0) {
-                            try {
-                                generator.write(line, buffer, sendAtTimestamps);
-                                buffer.flip();
-                                socketChannel.write(buffer);
-                                if (buffer.remaining() > 0) {
-                                    //System.out.println("! remaining " + buffer.remaining() + " " + buffer.limit() + " " + buffer.position());
+                    try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
+                        //logger.trace("Producer receiving " + path);
+                        while ((line = reader.readLine()) != null) {
+                            if (line.length() > 0) {
+                                try {
+                                    generator.write(line, buffer, sendAtTimestamps);
+                                    buffer.flip();
+                                    socketChannel.write(buffer);
+                                    if (buffer.remaining() > 0) {
+                                        //System.out.println("! remaining " + buffer.remaining() + " " + buffer.limit() + " " + buffer.position());
+                                    }
+                                    buffer.clear();
+                                } catch (BufferOverflowException ex) {
+                                    logger.error("error", ex);
                                 }
-                                buffer.clear();
-                            } catch (BufferOverflowException ex) {
-                                logger.error("SubProducer error", ex);
                             }
                         }
+                    } catch (IOException ex) {
+                        logger.error("cannot read data ", ex);
                     }
-                } catch (IOException ex) {
-                    logger.error("cannot read data ", ex);
+                    try {
+                        Thread.sleep(1000 * 5);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+                        if(!pathIt.hasNext()) {
+                            internalDone = true;
+                        }
+                        internalBatchEnd.await();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (BrokenBarrierException e) {
+                        e.printStackTrace();
+                    }
+                    generator.resetSequencNumber();
                 }
-                try {
-                    Thread.sleep(1000 * 5);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                try {
-                     if(!pathIt.hasNext()) {
-                         internalDone = true;
-                     }
-                     internalBatchEnd.await();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } catch (BrokenBarrierException e) {
-                    e.printStackTrace();
-                }
-                generator.resetSequencNumber();
-            }
+
             try {
-                logger.info("SubProducer closing socket");
+                logger.info("closing socket");
                 socketChannel.close();
             } catch (Exception e) {
-                logger.error("SubProducer error", e);
+                logger.error("error", e);
             }
             internalDone = true;
-            logger.info("SubProducer closing");
+            logger.info("closed");
         }
     }
 }

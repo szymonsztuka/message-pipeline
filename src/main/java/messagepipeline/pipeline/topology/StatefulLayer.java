@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import messagepipeline.pipeline.node.Node;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
@@ -16,19 +17,21 @@ public class StatefulLayer implements Runnable, Layer {
     private final List<? extends Node> nodes;
     final private Layer next;
     private final String name;
+    private final List<String> fileNames;
 
-    public StatefulLayer(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Node> nodes, Layer next) {
+    public StatefulLayer(String name, List<String> fileNames, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Node> nodes, Layer next) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.nodes = nodes;
         this.next = next;
         this.name = name;
+        this.fileNames = fileNames;
     }
 
-    public boolean step(){
-        boolean result =false;
-        if(next!=null) {
-            result = next.step();
+    public boolean step(String stepName){
+        boolean result = false;
+        if (next != null) {
+            result = next.step(stepName);
         }
         return result;
     }
@@ -45,9 +48,11 @@ public class StatefulLayer implements Runnable, Layer {
         }
         logger.info(name + " ...starts");
         boolean run = true;
-        while(run) {
-            run = step();
+        Iterator<String> nameIterator = fileNames.iterator();
+        while(run && nameIterator.hasNext()) {
+            run = step(nameIterator.next());
         }
+
         nodes.forEach(Node::signalBatchEnd);
         logger.info(name + " finishing...");
         try {

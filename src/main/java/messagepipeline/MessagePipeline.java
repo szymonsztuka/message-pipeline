@@ -280,6 +280,7 @@ public abstract class MessagePipeline {
                     generators.add(getMessageGenerator(node.getValue().get("output.format")));
                 }
                 final PushProducer producer = new PushProducer(
+                        node.getKey(),
                         node.getValue().get("input.directory"),
                         fileNames,
                         generators,
@@ -292,7 +293,7 @@ public abstract class MessagePipeline {
                 if (producerLayerName == null){ producerLayerName = node.getKey();} else { producerLayerName = producerLayerName+", "+node.getKey();}
             }
             final LeafLayer terminalLayer = new LeafLayer(producerLayerName, producerStartBarrier, producerStopBarrier, producers);
-            final NestedLayer topLayer = new NestedLayer(consumerLayerName, consumerStartBarrier, consumerStopBarrier, consumers, terminalLayer);
+            final NestedLayer topLayer = new NestedLayer(consumerLayerName, fileNames, consumerStartBarrier, consumerStopBarrier, consumers, terminalLayer);
             final Thread controllerThread;
             if (processConfigs.size() > 0) {
                 String processLayerName = null;
@@ -309,10 +310,10 @@ public abstract class MessagePipeline {
                             batchEnd);
                     bootstraps.add(process);
                     bootstrapThreads.add(new Thread(process, node.getKey()));
-                    if (processLayerName == null){ processLayerName = node.getKey();} else { processLayerName = processLayerName+", "+node.getKey();}
+                    if (processLayerName == null){ processLayerName = node.getKey();} else { processLayerName = processLayerName + ", " + node.getKey();}
                 }
-                final StatefulLayer processesLayer = new StatefulLayer(processLayerName, batchStart, batchEnd, bootstraps, topLayer);
-                controllerThread = new Thread(processesLayer);
+                final StatefulLayer processesLayer = new StatefulLayer(processLayerName, fileNames, batchStart, batchEnd, bootstraps, topLayer);
+                controllerThread = new Thread(processesLayer, "controller");
                 controllerThread.start();
                 bootstrapThreads.forEach(Thread::start);
             } else {
@@ -346,7 +347,7 @@ public abstract class MessagePipeline {
                 }
             });
         }
-        logger.info("All done!");
+        logger.info("done");
     }
 
     @Deprecated
@@ -483,8 +484,11 @@ public abstract class MessagePipeline {
     }
 
     private static String getNextAvailablePath(String name){
-        int i = 1;
-        while(Files.exists(Paths.get(name))) {
+        if (Files.exists(Paths.get(name))) {
+            int i = 1;
+            while (Files.exists(Paths.get(name + "-" + i))) {
+                i++;
+            }
             name = name + "-" + i;
         }
         return name;

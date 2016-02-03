@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import messagepipeline.message.MessageReceiver;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -36,7 +37,7 @@ public class PullConsumer implements Runnable, Node {
 
     public PullConsumer(String directory, List<String> messagePaths, MessageReceiver messageReceiver, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
         final Path outputDir = Paths.get(directory);
-        this.paths = messagePaths.stream().map(s -> Paths.get(outputDir + s)).collect(Collectors.toList());
+        this.paths = messagePaths.stream().map(s -> Paths.get(outputDir + File.separator + s)).collect(Collectors.toList());
         this.receiver = messageReceiver;
         this.address = address;
         this.batchStart = start;

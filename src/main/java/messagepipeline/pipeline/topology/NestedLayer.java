@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import messagepipeline.pipeline.node.Node;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
@@ -16,17 +17,19 @@ public class NestedLayer implements Runnable, Layer {
     private final List<? extends Node> nodes;
     final private Layer next;
     private final String name;
+    private final List<String> fileNames;
 
-    public NestedLayer(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Node> nodes, Layer next) {
+    public NestedLayer(String name, List<String> names, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Node> nodes, Layer next) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.nodes = nodes;
         this.next = next;
         this.name = name;
+        this.fileNames = names;
     }
 
-    public boolean step(){
-        logger.info(name + " awaiting...");
+    public boolean step(String stepName){
+        logger.info(name + " awaiting " + stepName + " ...");
         boolean result =false;
         try {
             batchStart.await();
@@ -35,12 +38,12 @@ public class NestedLayer implements Runnable, Layer {
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
-        logger.info(name + " ...starting");
+        logger.debug(name + " ...starting");
         if(next!=null) {
-            result = next.step();
+            result = next.step(stepName);
         }
         nodes.forEach(Node::signalBatchEnd);
-        logger.info(name + " finishing...");
+        logger.debug(name + " finishing...");
         try {
             batchEnd.await();
         } catch (InterruptedException e) {
@@ -55,8 +58,9 @@ public class NestedLayer implements Runnable, Layer {
     @Override
     public void run() {
         boolean run = true;
+        Iterator<String> nameIterator = fileNames.iterator();
         while(run) {
-            run = step();
+            run = step(nameIterator.next());
         }
         logger.info("done");
     }

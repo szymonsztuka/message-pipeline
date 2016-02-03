@@ -24,8 +24,8 @@ public class LeafLayer implements Layer {
         this.name = name;
     }
     
-    public boolean step(){
-        logger.info(name + " awaiting...");
+    public boolean step(String stepName){
+        logger.info(name + " awaiting " + stepName + " ...");
         try {
             batchStart.await();
         } catch (InterruptedException e) {
@@ -33,7 +33,7 @@ public class LeafLayer implements Layer {
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
-        logger.info(name + " finishing...");
+        logger.debug(name + " finishing...");
         try {
             batchEnd.await();
         } catch (InterruptedException e) {

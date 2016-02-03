@@ -83,7 +83,7 @@ public class JvmProcess implements Runnable, Node {
         }
 
         Thread.sleep(1000);
-        logger.debug("Bootstrap shouting down.");
+        logger.debug("shouting down");
 
         process.destroy();
 
@@ -101,7 +101,7 @@ public class JvmProcess implements Runnable, Node {
                 //logger.debug("start "+ i +"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                 //startTime = System.nanoTime();
                 int status = exec(mainClass, classpath, jvmArguments, programArguments, batchStart, batchEnd);
-                logger.info("Bootstrap returned status " + status);
+                logger.info("returned status " + status);
                 //long endTime = System.nanoTime();
                 //long duration = endTime - startTime;
                 //double seconds = (duration / 1000000000.0);
