@@ -39,10 +39,11 @@ public class PushProducer implements Runnable, LeafNode {
     final private CyclicBarrier internalBatchStart;
     final private CyclicBarrier internalBatchEnd;
     final private String name;
+    private final Path inputDir;
 
     public PushProducer(String name, String directory, List<String> messagePaths, List<MessageGenerator> messageGenerators, InetSocketAddress address, boolean sendAtTimestamps, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
-        final Path outputDir = Paths.get(directory);
-        this.paths = messagePaths.stream().map(s -> Paths.get(outputDir + File.separator + s)).collect(Collectors.toList());
+        this.inputDir = Paths.get(directory);
+        this.paths = messagePaths.stream().map(s -> Paths.get(this.inputDir + File.separator + s)).collect(Collectors.toList());
         this.generators = messageGenerators;
         this.address = address;
         this.sendAtTimestamps = sendAtTimestamps;
@@ -68,7 +69,7 @@ public class PushProducer implements Runnable, LeafNode {
                 for (int i = 0; i < generators.size(); i++) {
                     try {
                         SocketChannel socketChannel = serverSocketChannel.accept();
-                        logger.info("connection " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
+                        logger.info("source " + inputDir.toString() + ", destination " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
                         SubProducer subProducer = new SubProducer(socketChannel, paths, generators.get(i), internalBatchStart, internalBatchEnd);
                         threads.add(subProducer);
                         Thread subThread = new Thread(subProducer);

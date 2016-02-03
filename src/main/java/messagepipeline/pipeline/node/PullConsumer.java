@@ -34,10 +34,11 @@ public class PullConsumer implements Runnable, Node {
     private final MessageReceiver receiver;
     private final CyclicBarrier batchStart;
     private final CyclicBarrier batchEnd;
+    private final Path baseDir;
 
     public PullConsumer(String directory, List<String> messagePaths, MessageReceiver messageReceiver, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
-        final Path outputDir = Paths.get(directory);
-        this.paths = messagePaths.stream().map(s -> Paths.get(outputDir + File.separator + s)).collect(Collectors.toList());
+        this.baseDir = Paths.get(directory);
+        this.paths = messagePaths.stream().map(s -> Paths.get(this.baseDir + File.separator + s)).collect(Collectors.toList());
         this.receiver = messageReceiver;
         this.address = address;
         this.batchStart = start;
@@ -73,7 +74,8 @@ public class PullConsumer implements Runnable, Node {
                                 if (keySocketChannel.isConnectionPending()) {
                                     keySocketChannel.finishConnect();
                                 }
-                                logger.info("connection " + socketChannel.getLocalAddress() + " -> " + socketChannel.getRemoteAddress());
+                                logger.info("Source " + socketChannel.getLocalAddress() + " -> " + socketChannel.getRemoteAddress()
+                                        + ", destination " + baseDir.toString());
                                 for (Path path : paths) {
                                     logger.trace("connection " + path);
                                     try {
