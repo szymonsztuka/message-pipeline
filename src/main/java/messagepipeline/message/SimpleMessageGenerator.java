@@ -1,4 +1,4 @@
-package messagepipeline.content;
+package messagepipeline.message;
 
 import java.nio.ByteBuffer;
 

@@ -1,4 +1,4 @@
-package messagepipeline.node;
+package messagepipeline.pipeline.node;
 
 public interface Node {
     void signalBatchEnd();

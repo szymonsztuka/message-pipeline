@@ -1,8 +1,8 @@
-package messagepipeline.node;
+package messagepipeline.pipeline.node;
 
 import com.jcraft.jsch.*;
 import org.slf4j.*;
-import messagepipeline.content.ShellScriptGenerator;
+import messagepipeline.message.ShellScriptGenerator;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -155,7 +155,7 @@ public class RemoteShellScrip implements Runnable {
       // send '\0'
       buf[0]=0; out.write(buf, 0, 1); out.flush();
 
-      // read a content of lfile
+      // read a message of lfile
       if (Files.notExists(Paths.get(localDestFile).getParent())) {
         Files.createDirectories(Paths.get(localDestFile).getParent());
       }

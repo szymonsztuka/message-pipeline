@@ -1,6 +1,6 @@
 package messagepipeline.experimental;
 
-import messagepipeline.content.PullMessageReceiver;
+import messagepipeline.message.PullMessageReceiver;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;

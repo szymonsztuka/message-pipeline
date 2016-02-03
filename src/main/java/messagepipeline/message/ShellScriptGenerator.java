@@ -1,4 +1,4 @@
-package messagepipeline.content;
+package messagepipeline.message;
 
 public interface ShellScriptGenerator {
     String generate(String ... args);

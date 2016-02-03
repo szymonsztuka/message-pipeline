@@ -70,7 +70,7 @@ public class ScpFrom{
                 // send '\0'
                 buf[0]=0; out.write(buf, 0, 1); out.flush();
 
-                // read a content of lfile
+                // read a message of lfile
                 fos=new FileOutputStream( localDestFile);
                 int foo;
                 while(true){

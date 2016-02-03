@@ -1,8 +1,8 @@
-package messagepipeline.node;
+package messagepipeline.pipeline.node;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.content.MessageGenerator;
+import messagepipeline.message.MessageGenerator;
 
 import java.io.BufferedReader;
 import java.io.IOException;

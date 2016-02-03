@@ -2,14 +2,14 @@ package messagepipeline;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.content.MessageGenerator;
-import messagepipeline.content.MessageReceiver;
-import messagepipeline.content.ShellScriptGenerator;
-import messagepipeline.topology.NestedLayer;
-import messagepipeline.topology.StatefulLayer;
-import messagepipeline.topology.LeafLayer;
-import messagepipeline.node.*;
-import messagepipeline.node.JvmProcess;
+import messagepipeline.message.MessageGenerator;
+import messagepipeline.message.MessageReceiver;
+import messagepipeline.message.ShellScriptGenerator;
+import messagepipeline.pipeline.topology.NestedLayer;
+import messagepipeline.pipeline.topology.StatefulLayer;
+import messagepipeline.pipeline.topology.LeafLayer;
+import messagepipeline.pipeline.node.*;
+import messagepipeline.pipeline.node.JvmProcess;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;

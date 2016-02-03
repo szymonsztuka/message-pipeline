@@ -1,23 +1,23 @@
-package messagepipeline.topology;
+package messagepipeline.pipeline.topology;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.node.Node;
+import messagepipeline.pipeline.node.Node;
 
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
-public class StatefulLayer implements Runnable, Layer {
+public class NestedLayer implements Runnable, Layer {
 
-    private static final Logger logger = LoggerFactory.getLogger(StatefulLayer.class);
+    private static final Logger logger = LoggerFactory.getLogger(NestedLayer.class);
     private final CyclicBarrier batchStart;
     private final CyclicBarrier batchEnd;
     private final List<? extends Node> nodes;
     final private Layer next;
     private final String name;
 
-    public StatefulLayer(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Node> nodes, Layer next) {
+    public NestedLayer(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Node> nodes, Layer next) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.nodes = nodes;
@@ -26,16 +26,8 @@ public class StatefulLayer implements Runnable, Layer {
     }
 
     public boolean step(){
-        boolean result =false;
-        if(next!=null) {
-            result = next.step();
-        }
-        return result;
-    }
-
-    @Override
-    public void run() {
         logger.info(name + " awaiting...");
+        boolean result =false;
         try {
             batchStart.await();
         } catch (InterruptedException e) {
@@ -43,10 +35,9 @@ public class StatefulLayer implements Runnable, Layer {
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
-        logger.info(name + " ...starts");
-        boolean run = true;
-        while(run) {
-            run = step();
+        logger.info(name + " ...starting");
+        if(next!=null) {
+            result = next.step();
         }
         nodes.forEach(Node::signalBatchEnd);
         logger.info(name + " finishing...");
@@ -58,5 +49,15 @@ public class StatefulLayer implements Runnable, Layer {
             e.printStackTrace();
         }
         logger.info(name + " ...finished");
+        return result;
+    }
+
+    @Override
+    public void run() {
+        boolean run = true;
+        while(run) {
+            run = step();
+        }
+        logger.info("done");
     }
 }

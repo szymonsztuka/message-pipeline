@@ -1,8 +1,8 @@
-package messagepipeline.node;
+package messagepipeline.pipeline.node;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.content.MessageReceiver;
+import messagepipeline.message.MessageReceiver;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -15,42 +15,40 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
-import java.util.stream.Collectors;
 
-public class PullConsumer implements Runnable, Node {
+public class DeprecatedPullConsumer implements Runnable {
 
-    private static final Logger logger = LoggerFactory.getLogger(PullConsumer.class);
+    private static final Logger logger = LoggerFactory.getLogger(DeprecatedPullConsumer.class);
     public final InetSocketAddress address;
-    private volatile boolean process = true;
+    volatile private boolean process = true;
     private final List<Path> paths;
     private final MessageReceiver receiver;
-    private final CyclicBarrier batchStart;
-    private final CyclicBarrier batchEnd;
+    final private CyclicBarrier barrier;
+    RemoteShellScrip otherThread;
 
-    public PullConsumer(String directory, List<String> messagePaths, MessageReceiver messageReceiver, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
-        final Path outputDir = Paths.get(directory);
-        this.paths = messagePaths.stream().map(s -> Paths.get(outputDir + s)).collect(Collectors.toList());
-        this.receiver = messageReceiver;
-        this.address = address;
-        this.batchStart = start;
-        this.batchEnd = end;
+    public DeprecatedPullConsumer(List<Path> writerPaths, MessageReceiver messageReceiver, InetSocketAddress adress, CyclicBarrier barrier, RemoteShellScrip otherThread) {
+        paths = writerPaths;
+        receiver = messageReceiver;
+        this.address = adress;
+        this.barrier = barrier;
+        this.otherThread = otherThread;
     }
 
-    public void signalBatchEnd() {
+    public void signalOfBatch() {
         process = false;
-        //logger.trace("process set to " + process);
+        //logger.trace("process set to "+ process);
     }
 
     @SuppressWarnings("rawtypes")
     public void run() {
         ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+        logger.info("Consumer opening, path  " + address);
         try (Selector selector = Selector.open();
              SocketChannel socketChannel = SocketChannel.open()) {
             if ((socketChannel.isOpen()) && (selector.isOpen())) {
@@ -60,7 +58,8 @@ public class PullConsumer implements Runnable, Node {
                 socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
                 socketChannel.register(selector, SelectionKey.OP_CONNECT);
                 socketChannel.connect(address);
-                while (selector.select(10000) > 0) {
+                logger.info("Consumer: " + socketChannel.getRemoteAddress());
+                while (selector.select(1000) > 0) {
                     Set keys = selector.selectedKeys();
                     Iterator its = keys.iterator();
                     while (its.hasNext()) {
@@ -72,40 +71,51 @@ public class PullConsumer implements Runnable, Node {
                                 if (keySocketChannel.isConnectionPending()) {
                                     keySocketChannel.finishConnect();
                                 }
-                                logger.info("connection " + socketChannel.getLocalAddress() + " -> " + socketChannel.getRemoteAddress());
-                                for (Path path : paths) {
-                                    logger.trace("connection " + path);
-                                    try {
-                                        batchStart.await();
-                                    } catch (InterruptedException e) {
-                                        e.printStackTrace();
-                                    } catch (BrokenBarrierException e) {
-                                        e.printStackTrace();
-                                    }
+                                logger.info("Consumer connected " + paths);
+                                for(Path path : paths) {
+
                                     if (Files.notExists(path.getParent())) {
                                         Files.createDirectories(path.getParent());
                                     }
                                     try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("UTF-8"), StandardOpenOption.CREATE)) {
+                                        long x = 0;
+                                        long y = 0;
+                                        //logger.info("awaiting 0 reads  " + x + " 1 reads " + y);
+
                                         while (keySocketChannel.read(buffer) != -1) {
+                                            // if ( ((threads+1) % 100000 ==0) || ((y+1) % 100000 == 0) ) {
+                                            //	 logger.info("0 reads  " + threads +" 1 reads "+ y);
+                                            // }
+                                            //logger.info("process "+ process);
                                             if (buffer.position() > 0) {
+                                                y++;
                                                 buffer.flip();
                                                 String line = receiver.read(buffer);
                                                 writer.write(line);
                                                 writer.write("\n");
-                                                logger.trace("read " + line);
+                                                if (logger.isTraceEnabled()) {
+                                                    logger.trace("Read " + line);
+                                                }
                                                 if (buffer.hasRemaining()) {
                                                     buffer.compact();
                                                 } else {
                                                     buffer.clear();
                                                 }
                                             } else if (!process) {
-                                                logger.trace("stopped");
+                                                logger.info("stopped");
                                                 break;
+                                            } else {
+                                                x++;
                                             }
                                         }
                                     }
                                     try {
-                                        batchEnd.await();
+                                        if(otherThread!=null) {
+                                            otherThread.signalBeginOfBatch();
+                                        }
+                                        //logger.info("-> " + barrier.getNumberWaiting());
+                                        barrier.await();
+                                        //logger.info("-> " + barrier.getNumberWaiting() +" -> ");
                                         process = true;
                                     } catch (InterruptedException e) {
                                         e.printStackTrace();
@@ -115,16 +125,15 @@ public class PullConsumer implements Runnable, Node {
                                 }
                             }
                         } catch (IOException ex) {
-                            logger.error("consumer", ex);
+                            logger.error("Consumer", ex);
                         }
                     }
                 }
-                logger.info("done");
             } else {
-                logger.warn("socket channel or selector cannot be opened");
+                logger.warn("The socket channel or selector cannot be opened!");
             }
         } catch (IOException ex) {
-            logger.error("consumer", ex);
+            logger.error("Consumer", ex);
         }
     }
 }

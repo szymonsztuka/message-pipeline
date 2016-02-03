@@ -1,8 +1,8 @@
-package messagepipeline.topology;
+package messagepipeline.pipeline.topology;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.node.LeafNode;
+import messagepipeline.pipeline.node.LeafNode;
 
 import java.util.ConcurrentModificationException;
 import java.util.List;

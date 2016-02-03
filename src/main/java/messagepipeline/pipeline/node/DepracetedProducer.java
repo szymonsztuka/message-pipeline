@@ -1,4 +1,4 @@
-package messagepipeline.node;
+package messagepipeline.pipeline.node;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -15,7 +15,7 @@ import java.util.concurrent.CountDownLatch;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.content.MessageGenerator;
+import messagepipeline.message.MessageGenerator;
 
 public class DepracetedProducer implements Runnable {
 
