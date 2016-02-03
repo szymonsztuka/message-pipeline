@@ -2,23 +2,22 @@ package serverchainsimulator.control;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import serverchainsimulator.transport.Node;
 
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
-public class LayerControllerRecursiveStateful implements Runnable, LayerControllerDecorator {
+public class StatefulLayer implements Runnable, Layer {
 
+    private static final Logger logger = LoggerFactory.getLogger(StatefulLayer.class);
     private final CyclicBarrier batchStart;
     private final CyclicBarrier batchEnd;
-    private final List<? extends Stoppable> nodes;
-
-
-    final private LayerControllerDecorator next;
-    private static final Logger logger = LoggerFactory.getLogger(LayerControllerRecursiveStateful.class);
+    private final List<? extends Node> nodes;
+    final private Layer next;
     private final String name;
 
-    public LayerControllerRecursiveStateful(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Stoppable> nodes, LayerControllerDecorator next) {
+    public StatefulLayer(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Node> nodes, Layer next) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.nodes = nodes;
@@ -36,9 +35,7 @@ public class LayerControllerRecursiveStateful implements Runnable, LayerControll
 
     @Override
     public void run() {
-
         logger.info(name + " awaiting...");
-
         try {
             batchStart.await();
         } catch (InterruptedException e) {
@@ -47,16 +44,11 @@ public class LayerControllerRecursiveStateful implements Runnable, LayerControll
             e.printStackTrace();
         }
         logger.info(name + " ...starts");
-
         boolean run = true;
-        //while (!allProducersDone()) {
-
-
-        //}
         while(run) {
             run = step();
         }
-        nodes.forEach(Stoppable::signalBatchEnd);
+        nodes.forEach(Node::signalBatchEnd);
         logger.info(name + " finishing...");
         try {
             batchEnd.await();
@@ -67,5 +59,4 @@ public class LayerControllerRecursiveStateful implements Runnable, LayerControll
         }
         logger.info(name + " ...finished");
     }
-
 }

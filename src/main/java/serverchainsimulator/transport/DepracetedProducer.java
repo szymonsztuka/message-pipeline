@@ -35,19 +35,19 @@ public class DepracetedProducer implements Runnable {
     }
 
     public void run() {
-    	logger.info("DepracetedProducer opening");
-        try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) { logger.info("DepracetedProducer open");
-            if (serverSocketChannel.isOpen()) {  logger.info("DepracetedProducer is open");
+    	logger.info("Producer opening");
+        try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) { logger.info("Producer open");
+            if (serverSocketChannel.isOpen()) {  logger.info("Producer is open");
                 serverSocketChannel.configureBlocking(true);
                 serverSocketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
                 serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-                serverSocketChannel.bind(address); logger.info("DepracetedProducer accepting on " + address.toString());
+                serverSocketChannel.bind(address); logger.info("Producer accepting on " + address.toString());
                 try (SocketChannel socketChannel = serverSocketChannel.accept()) {  
-                    logger.info("DepracetedProducer connected " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
+                    logger.info("Producer connected " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
                     String line;
                     ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
                     try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
-                    	  logger.info("DepracetedProducer sending " + path);
+                    	  logger.info("Producer sending " + path);
                         while ((line = reader.readLine()) != null) {
                             if(line.length()>0) {
                                 try {
@@ -57,16 +57,16 @@ public class DepracetedProducer implements Runnable {
                                     buffer.clear();
                                     }
                                 }catch(BufferOverflowException ex){
-                                    logger.error("DepracetedProducer error", ex);
+                                    logger.error("Producer error", ex);
                                 }
                             }
                         }
                     }
                 } catch (IOException ex) {
-                    logger.error("DepracetedProducer cannot read data ", ex);
+                    logger.error("Producer cannot read data ", ex);
                 }
             } else {
-                logger.warn("The server socket channel cannot be opened!");
+                logger.warn("server socket channel cannot be opened");
             }
         } catch (IOException ex) {
             logger.error(ex.getMessage(), ex);
@@ -77,7 +77,7 @@ public class DepracetedProducer implements Runnable {
             logger.error(e.getMessage(), e);
         }
         done.countDown();
-        logger.info("DepracetedProducer is done! " + done.getCount());
+        logger.info("Producer is done " + done.getCount());
     }
 
 }

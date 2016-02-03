@@ -5,11 +5,11 @@ import org.slf4j.LoggerFactory;
 import serverchainsimulator.content.MessageGenerator;
 import serverchainsimulator.content.MessageReceiver;
 import serverchainsimulator.content.ShellScriptGenerator;
-import serverchainsimulator.control.LayerControllerRecursive;
-import serverchainsimulator.control.LayerControllerRecursiveStateful;
-import serverchainsimulator.control.LayerControllerTerminal;
+import serverchainsimulator.control.NestedLayer;
+import serverchainsimulator.control.StatefulLayer;
+import serverchainsimulator.control.LeafLayer;
 import serverchainsimulator.transport.*;
-import serverchainsimulator.transport.Process;
+import serverchainsimulator.transport.JvmProcess;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -44,15 +44,14 @@ public abstract class ServerChainSimulator {
                     path = p;
                 } else {
                     try {
-                         Path root = Paths.get(ServerChainSimulator.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-                         path = root.getParent().resolveSibling(p);
+                        Path root = Paths.get(ServerChainSimulator.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+                        path = root.getParent().resolveSibling(p);
                     } catch (URISyntaxException e) {
-                         System.err.println(e); //TODO log
-                         path = p;
-                        }
+                        System.err.println(e); //TODO log
+                        path = p;
                     }
-                    return path;
-            })
+                }
+                return path;})
             .map((Path p) -> {
                 Properties prop = new Properties();
                 try {
@@ -60,16 +59,17 @@ public abstract class ServerChainSimulator {
                 } catch (IOException e) {
                     System.err.println(e);//TODO log
                 }
-                return prop;
-            })
+                return prop;})
             .reduce((Properties p, Properties r) -> {
                 p.putAll(r);
-                return p;
-            });
+                return p;});
         Properties arguments = Arrays.stream(args)
                 .filter((String s) -> s.startsWith("-") && s.contains("="))
                 .map((String s) -> s.substring(1))
-                .collect(() -> new Properties(), (Properties p, String s) -> p.put(s.substring(0, s.indexOf("=")), s.substring(s.indexOf("=") + 1)), (Properties p, Properties r) -> p.putAll(r));
+                .collect(() -> new Properties(),
+                                   (Properties p, String s) -> p.put(s.substring(0, s.indexOf("=")),
+                                   s.substring(s.indexOf("=") + 1)),
+                                   (Properties p, Properties r) -> p.putAll(r));
         properties.get().putAll(arguments);
 
         // (new TreeMap(fileProperties.get())).forEach((k, v) -> System.out.println(k + "=" + v));//TreeMap to order elements, Properties is a hashmap
@@ -88,70 +88,63 @@ public abstract class ServerChainSimulator {
                         return nodesToRun.contains(e.getKey().substring(0, e.getKey().indexOf(".")));
                     } else {
                         return nodesToRun.contains(e.getKey()) || "run".equals(e.getKey());
-                    }
-                })
+                    }})
                 .collect(Collectors.toMap(
                         e -> e.getKey(),
                         e -> e.getValue()));
 
         String today = (new SimpleDateFormat("dd-MMM-yy")).format(Calendar.getInstance().getTime());
-
-        selectedProperties = selectedProperties.entrySet().stream().collect(Collectors.toMap(
-                e -> e.getKey(),
-                e -> e.getValue().replace("{dd-MMM-yy}",today)));
+        selectedProperties = selectedProperties.entrySet().stream()
+                .collect(Collectors.toMap(e -> e.getKey(),
+                                          e -> e.getValue().replace("{dd-MMM-yy}",today)));
         //(new TreeMap(res)).forEach((k, v) -> System.out.println(k + "=" + v));
 
         Map<String, Map<String, String>> nodeToProperties = selectedProperties.entrySet().stream()
                     .filter(e -> !e.getKey().equals("run"))
-                    .collect(Collectors
-                        .groupingBy(e -> e.getKey().substring(0, e.getKey().indexOf(".")),
-                            Collectors.toMap(
-                                e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
-                                e -> e.getValue())));
+                    .collect(Collectors.groupingBy(e -> e.getKey().substring(0, e.getKey().indexOf(".")),
+                                                   Collectors.toMap(e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
+                                                   e -> e.getValue())));
 
         for (String compoundStep:   Arrays.asList(properties.get().getProperty("run").split(";"))) {
-            Map<String, Map<String, String>> producers = new TreeMap<>();
-            Map<String, Map<String, String>> consumers = new TreeMap<>();
-            Map<String, Map<String, String>> remoteScripts = new TreeMap<>();
-            Map<String, Map<String, String>> processes = new TreeMap<>();
-            Map<String, Map<String, String>> localScripts = new TreeMap<>();
+            final Map<String, Map<String, String>> producers = new TreeMap<>();
+            final Map<String, Map<String, String>> consumers = new TreeMap<>();
+            final Map<String, Map<String, String>> remoteScripts = new TreeMap<>();
+            final Map<String, Map<String, String>> processes = new TreeMap<>();
+            final Map<String, Map<String, String>> localScripts = new TreeMap<>();
             for (String key: Arrays.asList(compoundStep.split("->|,"))) {
-                     Map<String, String> values = nodeToProperties.get(key);
-                    if (values.containsKey("type") && values.containsKey("input") && values.containsKey("output")
-                            && values.get("type").equals("sender")
-                            && values.get("input").equals("files")
-                            && values.get("output").equals("tcpserver")
-                            ) {
-                        producers.put(key, values);
-                    } else if (values.containsKey("type") && values.containsKey("input") && values.containsKey("output")
-                            && values.get("type").equals("receiver")
-                            && values.get("input").equals("tcpclient")
-                            && values.get("output").equals("files")
-                            ) {
-                        consumers.put(key, values);
-                    } else if (values.containsKey("type") && values.containsKey("host") && values.containsKey("user") && values.containsKey("password")
-                            && values.get("type").equals("remotescript")
-                            ) {
-                        remoteScripts.put(key, values);
-                    } else if (values.containsKey("type") && values.get("type").equals("javaprocess")) {
-                        processes.put(key, values);
-                    } else if (values.containsKey("type") && values.get("type").equals("localscript")) {
-                        localScripts.put(key, values);
-                    } else {
-                        logger.warn("Command " + key + " not recognized");
+                Map<String, String> values = nodeToProperties.get(key);
+                if ("sender".equals(values.get("type"))
+                         && "files".equals(values.get("input"))
+                         && "tcpserver".equals(values.get("output"))) {
+                    producers.put(key, values);
+                } else if ("receiver".equals(values.get("type"))
+                        && "tcpclient".equals(values.get("input"))
+                        && "files".equals(values.get("output"))) {
+                    consumers.put(key, values);
+                } else if ("remotescript".equals(values.get("type"))
+                        && values.containsKey("host")
+                        && values.containsKey("user")
+                        && values.containsKey("password")) {
+                    remoteScripts.put(key, values);
+                } else if ("javaprocess".equals(values.get("type"))) {
+                    processes.put(key, values);
+                } else if ("localscript".equals(values.get("type"))) {
+                    localScripts.put(key, values);
+                } else {
+                    logger.warn("Command " + key + " not recognized");
                 }
             }
-            logger.info("Dispaching " + producers.size() + " producers, "
-            + consumers.size() + " consumers, "
-            + remoteScripts.size() + " remote scripts, "
-            + processes.size() + " processes, "
-            + localScripts.size() + " local scripts ...");
+            logger.info("Dispatching " + producers.size() + " producers, "
+                + consumers.size() + " consumers, "
+                + remoteScripts.size() + " remote scripts, "
+                + processes.size() + " processes, "
+                + localScripts.size() + " local scripts ...");
             if (producers.size() == 1 && consumers.size() == 0 && remoteScripts.size() == 0) {
                 try {
-                     java.lang.Process process = Runtime.getRuntime().exec(localScripts.get(0).get("script"));
+                     final Process process = Runtime.getRuntime().exec(localScripts.get(0).get("script"));
                      // exhaust input stream  http://dhruba.name/2012/10/16/java-pitfall-how-to-prevent-runtime-getruntime-exec-from-hanging/
-                     BufferedInputStream in = new BufferedInputStream(process.getInputStream());
-                     byte[] bytes = new byte[4096];
+                     final BufferedInputStream in = new BufferedInputStream(process.getInputStream());
+                     final byte[] bytes = new byte[4096];
                      while (in.read(bytes) != -1) {}// wait for completion
                      try {
                          process.waitFor();
@@ -163,24 +156,11 @@ public abstract class ServerChainSimulator {
                 }
             } else if (producers.size() == 1 && consumers.size() == 0 && remoteScripts.size() == 0) {
                 logger.info(" to command send");
-                Map<String, String> values = producers.entrySet().iterator().next().getValue();
-                send(values);
+                send(producers.entrySet().iterator().next().getValue());
             } else if (producers.size() == 1 && consumers.size() > 0 && remoteScripts.size() == 0) {
                 logger.info("... to command send receive process");
-                Map<String, String> producer = producers.entrySet().iterator().next().getValue();
-                Iterator<Map.Entry<String, Map<String, String>>> consumerIterator = consumers.entrySet().iterator();
-                List<Map<String, String>> consumerConfigs = new ArrayList<>(2);
-                consumerConfigs.add(consumerIterator.next().getValue());
-                if(consumerIterator.hasNext()) {
-                    consumerConfigs.add(consumerIterator.next().getValue());
-                }
-                List<Map<String, String>> producerConfigs = new ArrayList<>(1);
-                producerConfigs.add(producer);
-                List<Map<String, String>> processConfigs = new ArrayList<>(processes.size());
-                for (Map<String, String> x : processes.values()) {
-                     processConfigs.add(x);
-                }
-                sendReceiveInterpreter(producerConfigs, consumerConfigs, processConfigs);
+                //final List<Map<String, String>> consumerConfigs = consumers.values().stream().collect(Collectors.toList()); //map to list
+                sendReceiveInterpreter(producers, consumers, processes);
             } else if (producers.size() == 1 && consumers.size() == 2 && remoteScripts.size() == 2) {
                 logger.info("... to command send receive remote scripts");
                 Map<String, String> producerConfigs = producers.entrySet().iterator().next().getValue();
@@ -199,15 +179,15 @@ public abstract class ServerChainSimulator {
         }
     }
 
+    @Deprecated
     public void send(Map<String,String> values) {
-
-        final List<Path> readerFileNames = collectProducerPaths(Paths.get(values.get("input.directory")), null);
+        final List<Path> readerFileNames = collectPaths(Paths.get(values.get("input.directory")), null);
         Iterator<Path> readerIt = readerFileNames.iterator();
-        while (readerIt.hasNext()) {
+        while(readerIt.hasNext()){
             CountDownLatch done = new CountDownLatch(1);
             final Runnable producer;
             final int noOfClients = Integer.parseInt(values.get("output.clients.number"));
-            if (noOfClients > 1) {
+            if(noOfClients > 1) {
                 List<MessageGenerator> msgProducers = new ArrayList<>(noOfClients);
                 for (int i=0; i < noOfClients; i++) {
                     msgProducers.add(getMessageGenerator( values.get("output.format")));
@@ -233,22 +213,26 @@ public abstract class ServerChainSimulator {
                 e1.printStackTrace();
             }
         }
-        logger.info("All done!");
+        logger.info("done");
     }
 
-    public void sendReceiveInterpreter(List<Map<String,String>> senderConfig, List<Map<String,String>> consumerConfig, List<Map<String,String>> processConfigs) {
+    public void sendReceiveInterpreter(Map<String, Map<String,String>> senderConfig, Map<String, Map<String,String>> consumerConfig, Map<String, Map<String,String>> processConfigs) {
 
-        final List<Path> allReaderFileNames = collectProducerPaths(Paths.get(senderConfig.get(0).get("input.directory")), null);
-        Iterator<Path> it = allReaderFileNames.iterator();
+        final Path basePath = Paths.get(senderConfig.values().iterator().next().get("input.directory"));
+
+        final List<Path> allReaderFileNames = collectPaths(basePath, null);
+        final Iterator<Path> it = allReaderFileNames.iterator();
         Path a = it.next();
-        while (it.hasNext()) {
+        while(it.hasNext()) {
             final List<Path> readerFileNames = new ArrayList<>(30);
             readerFileNames.add(a);
             while (it.hasNext()) {
-                Path b = it.next();
+                final Path b = it.next();
                 if (a.getParent().equals(b.getParent())
                         || processConfigs.isEmpty()
-                        || (!processConfigs.isEmpty() && processConfigs.get(0).containsKey("restart")) && !processConfigs.get(0).get("restart").equals("on-new-folder")){
+                        || (!processConfigs.isEmpty()
+                            && processConfigs.values().iterator().next().containsKey("restart"))
+                            && !processConfigs.values().iterator().next().get("restart").equals("on-new-folder")){
                     readerFileNames.add(b);
                     a = b;
                 } else {
@@ -256,70 +240,78 @@ public abstract class ServerChainSimulator {
                     break;
                 }
             }
-            List<PullConsumer> consumers = new ArrayList<>(consumerConfig.size());
-            List<Thread> consumersThreads = new ArrayList<>(consumerConfig.size());
 
-            CyclicBarrier consumerStartBarrier = new CyclicBarrier(consumerConfig.size() + 1);
-            CyclicBarrier consumerStopBarrier = new CyclicBarrier(consumerConfig.size() + 1);
-            CyclicBarrier producerStartBarrier = new CyclicBarrier(senderConfig.size() + 1);
-            CyclicBarrier producerStopBarrier = new CyclicBarrier(senderConfig.size() + 1);
+            final List<String> fileNames = readerFileNames.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
 
-            for (Map<String, String> node : consumerConfig) {
-                final Path outputDir = generateConsumerRootDir3(Paths.get(node.get("output.directory")));
-                final List<Path> writerFileNames = generateConsumerPaths3(outputDir, readerFileNames, Paths.get(senderConfig.get(0).get("input.directory")));
-                PullConsumer consumer = new PullConsumer(writerFileNames,
-                        getMessageReceiver(node.get("input.format")),
-                        new InetSocketAddress(node.get("input.ip"), Integer.parseInt(node.get("input.port"))),
+            final List<PullConsumer> consumers = new ArrayList<>(consumerConfig.size());
+            final List<Thread> consumersThreads = new ArrayList<>(consumerConfig.size());
+
+            final CyclicBarrier consumerStartBarrier = new CyclicBarrier(consumerConfig.size() + 1);
+            final CyclicBarrier consumerStopBarrier = new CyclicBarrier(consumerConfig.size() + 1);
+            final CyclicBarrier producerStartBarrier = new CyclicBarrier(senderConfig.size() + 1);
+            final CyclicBarrier producerStopBarrier = new CyclicBarrier(senderConfig.size() + 1);
+
+            String consumerLayerName = null;
+            for (Map.Entry<String, Map<String, String>> node : consumerConfig.entrySet()) {
+                 final PullConsumer consumer = new PullConsumer(getNextAvailablePath(node.getValue().get("output.directory")),
+                        fileNames,
+                        getMessageReceiver(node.getValue().get("input.format")),
+                        new InetSocketAddress(node.getValue().get("input.ip"), Integer.parseInt(node.getValue().get("input.port"))),
                         consumerStartBarrier,
                         consumerStopBarrier);
                 consumers.add(consumer);
-                consumersThreads.add(new Thread(consumer));
+                consumersThreads.add(new Thread(consumer,node.getKey()));
+                if (consumerLayerName == null){ consumerLayerName = node.getKey();} else { consumerLayerName = consumerLayerName+", "+node.getKey();}
             }
 
-            List<PushProducer> producers = new ArrayList<>(senderConfig.size());
-            List<Thread> producersThreads = new ArrayList<>(senderConfig.size());
+            final List<PushProducer> producers = new ArrayList<>(senderConfig.size());
+            final List<Thread> producersThreads = new ArrayList<>(senderConfig.size());
 
-            for (Map<String, String> node : senderConfig) {
-                final int clientsNumber = Integer.parseInt(node.get("output.clients.number")) > 0 ? Integer.parseInt(node.get("output.clients.number")) : 1;
-                List generators = new ArrayList<>(clientsNumber);
-                for (int j = 0; j < clientsNumber; j++) {
-                    generators.add(getMessageGenerator(node.get("output.format")));
+            String producerLayerName = null;
+            for (Map.Entry<String, Map<String, String>> node : senderConfig.entrySet()) {
+                final int clientsNumber;
+                if(Integer.parseInt(node.getValue().get("output.clients.number")) > 0) {
+                    clientsNumber = Integer.parseInt(node.getValue().get("output.clients.number"));
+                } else {
+                    clientsNumber = 1;
                 }
-                String newAdress = node.get("output.ip");
-                /*if("localhost".equalsIgnoreCase(node.get("output.ip"))) {
-                    try {
-                        newAdress = InetAddress.getLocalHost().getHostAddress();
-                    } catch (UnknownHostException e) {
-                        e.printStackTrace();
-                    }
-                }*/
-                PushProducer producer = new PushProducer(
-                        readerFileNames,
+                final List generators = new ArrayList<>(clientsNumber);
+                for (int j = 0; j < clientsNumber; j++) {
+                    generators.add(getMessageGenerator(node.getValue().get("output.format")));
+                }
+                final PushProducer producer = new PushProducer(
+                        node.getValue().get("input.directory"),
+                        fileNames,
                         generators,
-                        new InetSocketAddress(newAdress, Integer.parseInt(node.get("output.port"))),
-                        Integer.parseInt(node.get("output.clients.number")),
-                        "true".equals(node.get("output.realtime")),
+                        new InetSocketAddress(node.getValue().get("output.ip"), Integer.parseInt(node.getValue().get("output.port"))),
+                        "true".equals(node.getValue().get("output.realtime")),
                         producerStartBarrier,
                         producerStopBarrier);
                 producers.add(producer);
-                producersThreads.add(new Thread(producer));
+                producersThreads.add(new Thread(producer,node.getKey()));
+                if (producerLayerName == null){ producerLayerName = node.getKey();} else { producerLayerName = producerLayerName+", "+node.getKey();}
             }
-            //LayerController controller = new LayerController(consumerStartBarrier, consumerStopBarrier, consumers, producerStartBarrier, producerStopBarrier, producers);
-            LayerControllerTerminal terminalLayer = new LayerControllerTerminal("input-simulators", producerStartBarrier, producerStopBarrier, producers);
-            LayerControllerRecursive topLayer = new LayerControllerRecursive("output-captures", consumerStartBarrier, consumerStopBarrier, consumers, terminalLayer);
+            final LeafLayer terminalLayer = new LeafLayer(producerLayerName, producerStartBarrier, producerStopBarrier, producers);
+            final NestedLayer topLayer = new NestedLayer(consumerLayerName, consumerStartBarrier, consumerStopBarrier, consumers, terminalLayer);
             final Thread controllerThread;
             if (processConfigs.size() > 0) {
-                List<Process> bootstraps = new ArrayList<>(processConfigs.size());
-                List<Thread> bootstrapThreads = new ArrayList<>(processConfigs.size());
-                CyclicBarrier batchStart = new CyclicBarrier(processConfigs.size() + 1);
-                CyclicBarrier batchEnd = new CyclicBarrier(processConfigs.size() + 1);
-                for (Map<String, String> node : processConfigs) {
-                    Process process = new Process(node.get("classpath"), node.get("jvmArguments").split(" "), node.get("mainClass"),
-                            node.get("programArguments").split(" "), batchStart, batchEnd);
+                String processLayerName = null;
+                final List<JvmProcess> bootstraps = new ArrayList<>(processConfigs.size());
+                final List<Thread> bootstrapThreads = new ArrayList<>(processConfigs.size());
+                final CyclicBarrier batchStart = new CyclicBarrier(processConfigs.size() + 1);
+                final CyclicBarrier batchEnd = new CyclicBarrier(processConfigs.size() + 1);
+                for (Map.Entry<String, Map<String, String>> node : processConfigs.entrySet()) {
+                    final JvmProcess process = new JvmProcess(node.getValue().get("classpath"),
+                            node.getValue().get("jvmArguments").split(" "),
+                            node.getValue().get("mainClass"),
+                            node.getValue().get("programArguments").split(" "),
+                            batchStart,
+                            batchEnd);
                     bootstraps.add(process);
-                    bootstrapThreads.add(new Thread(process));
+                    bootstrapThreads.add(new Thread(process, node.getKey()));
+                    if (processLayerName == null){ processLayerName = node.getKey();} else { processLayerName = processLayerName+", "+node.getKey();}
                 }
-                LayerControllerRecursiveStateful processesLayer = new LayerControllerRecursiveStateful("parsers " + bootstraps.size(), batchStart, batchEnd, bootstraps, topLayer);
+                final StatefulLayer processesLayer = new StatefulLayer(processLayerName, batchStart, batchEnd, bootstraps, topLayer);
                 controllerThread = new Thread(processesLayer);
                 controllerThread.start();
                 bootstrapThreads.forEach(Thread::start);
@@ -341,7 +333,6 @@ public abstract class ServerChainSimulator {
                     e.printStackTrace();
                 }
             });
-
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -358,27 +349,27 @@ public abstract class ServerChainSimulator {
         logger.info("All done!");
     }
 
-    //TODO company specific
+    @Deprecated
     public void sendReceiveThreeLayers(Map<String,String> producerConfigs, List<Map<String,String>> consumerConfigs, List<Map<String,String>> remoteScriptConfigs) {
 
-        final List<Path> readerFileNames = collectProducerPaths(Paths.get(producerConfigs.get("input.directory")), null);
+        final List<Path> readerFileNames = collectPaths(Paths.get(producerConfigs.get("input.directory")), null);
 
-        final Path outputDir1 = generateConsumerRootDir3(Paths.get(consumerConfigs.get(0).get("output.directory")));
+        final Path outputDir1 = generateConsumerRootDir(Paths.get(consumerConfigs.get(0).get("output.directory")));
 
-        final List<Path> writerFileNames1 = generateConsumerPaths3(outputDir1, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
+        final List<Path> writerFileNames1 = generateConsumerPaths(outputDir1, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
 
-        final Path outputDir2 = generateConsumerRootDir3(Paths.get(consumerConfigs.get(1).get("output.directory")));
+        final Path outputDir2 = generateConsumerRootDir(Paths.get(consumerConfigs.get(1).get("output.directory")));
         System.out.println("output " +outputDir2);
-        final List<Path> writerFileNames2 = generateConsumerPaths3(outputDir2, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
+        final List<Path> writerFileNames2 = generateConsumerPaths(outputDir2, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
 
 
-        final Path thirdLayerOutputDir1 = generateConsumerRootDir3(Paths.get(remoteScriptConfigs.get(0).get("output.directory")));
+        final Path thirdLayerOutputDir1 = generateConsumerRootDir(Paths.get(remoteScriptConfigs.get(0).get("output.directory")));
         System.out.println("output " +thirdLayerOutputDir1);
-        final List<Path>  thirdLayerWriterFileNames1 = generateConsumerPaths3(thirdLayerOutputDir1, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
+        final List<Path>  thirdLayerWriterFileNames1 = generateConsumerPaths(thirdLayerOutputDir1, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
 
-        final Path thirdLayerOutputDir2 = generateConsumerRootDir3(Paths.get(remoteScriptConfigs.get(1).get("output.directory")));
+        final Path thirdLayerOutputDir2 = generateConsumerRootDir(Paths.get(remoteScriptConfigs.get(1).get("output.directory")));
         System.out.println("output " +thirdLayerOutputDir2);
-        final List<Path>  thirdLayerWriterFileNames2 = generateConsumerPaths3(thirdLayerOutputDir2, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
+        final List<Path>  thirdLayerWriterFileNames2 = generateConsumerPaths(thirdLayerOutputDir2, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
 
         CyclicBarrier barrier = new CyclicBarrier(6); //updated for SSH
         CountDownLatch done = new CountDownLatch(2);
@@ -422,7 +413,6 @@ public abstract class ServerChainSimulator {
             thirdLayerThreads.add(t);
         }
 
-        //System.out.println(consumerConfigs);
         DeprecatedPullConsumer consumer1 = new DeprecatedPullConsumer(writerFileNames1,
                 getMessageReceiver(consumerConfigs.get(0).get("input.format")),
                 new InetSocketAddress(consumerConfigs.get(0).get("input.ip"), Integer.parseInt(consumerConfigs.get(0).get("input.port"))),
@@ -464,7 +454,7 @@ public abstract class ServerChainSimulator {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        System.out.println("DepracetedProducer start!");
+        System.out.println("Producer start!");
         producerThread.start();
         try {
             producerThread.join();
@@ -492,9 +482,15 @@ public abstract class ServerChainSimulator {
         logger.info("All done!");
     }
 
+    private static String getNextAvailablePath(String name){
+        int i = 1;
+        while(Files.exists(Paths.get(name))) {
+            name = name + "-" + i;
+        }
+        return name;
+    }
 
-    public List<Path>collectProducerPaths (Path dirOrFilePath, String ignore) {
-
+    private List<Path> collectPaths(Path dirOrFilePath, String ignore) {
         if(Files.notExists(dirOrFilePath)) {
             try {
                 Files.createDirectories(dirOrFilePath);
@@ -503,7 +499,7 @@ public abstract class ServerChainSimulator {
             }
         }
         if (Files.isDirectory(dirOrFilePath, LinkOption.NOFOLLOW_LINKS)) {
-            RecursiveFileCollector walk= new RecursiveFileCollector(ignore);
+            RecursiveFileCollector walk = new RecursiveFileCollector(ignore);
             try {
                 Files.walkFileTree(dirOrFilePath, walk);
             } catch (IOException ex) {
@@ -511,15 +507,13 @@ public abstract class ServerChainSimulator {
             }
             return walk.getResult();
         } else {
-            List<Path> singleFile = new ArrayList<Path>();
+            List<Path> singleFile = new ArrayList<>();
             singleFile.add(dirOrFilePath);
             return singleFile;
         }
     }
-
-    public static  Path generateConsumerRootDir3(final Path outputDir) {
-
-
+    @Deprecated
+    private static Path generateConsumerRootDir(final Path outputDir) {
         final String n;
         if(outputDir.toString().contains("/output/")) {
             n = outputDir.toString().replace("/output/", "/output/"+(new SimpleDateFormat("yyyy-MM-dd-HH").format(new Date()))+"/");
@@ -537,9 +531,9 @@ public abstract class ServerChainSimulator {
         }
         return root;
     }
-
-    public static List<Path> generateConsumerPaths3(Path outputDir, List<Path> producerInputPath, Path inputDir) {
-        final List<Path> readerFileNames = new ArrayList<Path>();
+    @Deprecated
+    private static List<Path> generateConsumerPaths(Path outputDir, List<Path> producerInputPath, Path inputDir) {
+        final List<Path> readerFileNames = new ArrayList<>();
         for (Path path: producerInputPath) {
             final Path newOne;
             if(inputDir.getNameCount() != path.getNameCount()) {
@@ -561,7 +555,7 @@ public abstract class ServerChainSimulator {
     }
 
     class RecursiveFileCollector extends SimpleFileVisitor<Path> {
-        private final List<Path> result = new ArrayList<Path>();
+        private final List<Path> result = new ArrayList<>();
         private final String ignore;
         public RecursiveFileCollector(String ignore) {
             this.ignore = ignore;

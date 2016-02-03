@@ -2,33 +2,30 @@ package serverchainsimulator.control;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import serverchainsimulator.transport.LeafNode;
 
+import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
-public class LayerControllerRecursive implements Runnable, LayerControllerDecorator {
+public class LeafLayer implements Layer {
 
+    private static final Logger logger = LoggerFactory.getLogger(LeafLayer.class);
     private final CyclicBarrier batchStart;
     private final CyclicBarrier batchEnd;
-    private final List<? extends Stoppable> nodes;
-
-
-    final private LayerControllerDecorator next;
-    private static final Logger logger = LoggerFactory.getLogger(LayerControllerRecursive.class);
+    private final List<? extends LeafNode> nodes;
     private final String name;
 
-    public LayerControllerRecursive(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Stoppable> nodes, LayerControllerDecorator next) {
+    public LeafLayer(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends LeafNode> nodes) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.nodes = nodes;
-        this.next = next;
         this.name = name;
     }
-
+    
     public boolean step(){
         logger.info(name + " awaiting...");
-        boolean result =false;
         try {
             batchStart.await();
         } catch (InterruptedException e) {
@@ -36,11 +33,6 @@ public class LayerControllerRecursive implements Runnable, LayerControllerDecora
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
-        logger.info(name + " ...starting");
-        if(next!=null) {
-            result = next.step();
-        }
-        nodes.forEach(Stoppable::signalBatchEnd);
         logger.info(name + " finishing...");
         try {
             batchEnd.await();
@@ -49,21 +41,26 @@ public class LayerControllerRecursive implements Runnable, LayerControllerDecora
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
-        logger.info(name + " ...finished");
+        boolean result = !allProducersDone();
+        logger.info(name + " ...finished" + ((!result)?", result=false":""));
         return result;
     }
 
-    @Override
-    public void run() {
-        boolean run = true;
-        //while (!allProducersDone()) {
-
-
-        //}
-        while(run) {
-            run = step();
-        }
-        logger.info("done");
+    private boolean allProducersDone() {
+        boolean reread;
+        boolean result = true;
+        do {
+            reread = false;
+            try {
+                for (LeafNode prod : nodes) {
+                    if (!prod.isDone()) {
+                        result = false;
+                    }
+                }
+            } catch (ConcurrentModificationException e) {
+                reread = true;
+            }
+        } while (reread);
+        return result;
     }
-
 }

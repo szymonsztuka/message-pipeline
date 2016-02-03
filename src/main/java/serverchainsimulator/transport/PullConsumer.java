@@ -2,7 +2,6 @@ package serverchainsimulator.transport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import serverchainsimulator.control.Stoppable;
 import serverchainsimulator.content.MessageReceiver;
 
 import java.io.BufferedWriter;
@@ -16,34 +15,37 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.stream.Collectors;
 
-public class PullConsumer implements Runnable, Stoppable {
+public class PullConsumer implements Runnable, Node {
 
     private static final Logger logger = LoggerFactory.getLogger(PullConsumer.class);
     public final InetSocketAddress address;
-    volatile private boolean process = true;
+    private volatile boolean process = true;
     private final List<Path> paths;
     private final MessageReceiver receiver;
-    final private CyclicBarrier batchStart;
-    final private CyclicBarrier batchEnd;
+    private final CyclicBarrier batchStart;
+    private final CyclicBarrier batchEnd;
 
-    public PullConsumer(List<Path> writerPaths, MessageReceiver messageReceiver, InetSocketAddress adress, CyclicBarrier start, CyclicBarrier end) {
-        paths = writerPaths;
-        receiver = messageReceiver;
-        this.address = adress;
+    public PullConsumer(String directory, List<String> messagePaths, MessageReceiver messageReceiver, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
+        final Path outputDir = Paths.get(directory);
+        this.paths = messagePaths.stream().map(s -> Paths.get(outputDir + s)).collect(Collectors.toList());
+        this.receiver = messageReceiver;
+        this.address = address;
         this.batchStart = start;
         this.batchEnd = end;
     }
 
     public void signalBatchEnd() {
         process = false;
-        logger.trace("process set to " + process);
+        //logger.trace("process set to " + process);
     }
 
     @SuppressWarnings("rawtypes")
@@ -90,14 +92,14 @@ public class PullConsumer implements Runnable, Stoppable {
                                                 String line = receiver.read(buffer);
                                                 writer.write(line);
                                                 writer.write("\n");
-                                                logger.trace("Read " + line);
+                                                logger.trace("read " + line);
                                                 if (buffer.hasRemaining()) {
                                                     buffer.compact();
                                                 } else {
                                                     buffer.clear();
                                                 }
                                             } else if (!process) {
-                                                logger.trace("file session - consumer ends;");
+                                                logger.trace("stopped");
                                                 break;
                                             }
                                         }
@@ -113,16 +115,16 @@ public class PullConsumer implements Runnable, Stoppable {
                                 }
                             }
                         } catch (IOException ex) {
-                            logger.error("Consumer", ex);
+                            logger.error("consumer", ex);
                         }
                     }
                 }
-                logger.info("Consumer is done");
+                logger.info("done");
             } else {
-                logger.warn("The socket channel or selector cannot be opened!");
+                logger.warn("socket channel or selector cannot be opened");
             }
         } catch (IOException ex) {
-            logger.error("Consumer", ex);
+            logger.error("consumer", ex);
         }
     }
 }

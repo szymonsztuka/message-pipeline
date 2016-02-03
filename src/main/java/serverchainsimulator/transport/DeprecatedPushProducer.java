@@ -22,15 +22,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
 
-//import java.util.ConcurrentModificationException;
-
 public class DeprecatedPushProducer implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(DeprecatedPushProducer.class);
     final private List<MessageGenerator> generators;
     final private CountDownLatch done;
     final private InetSocketAddress address;
-    List<Path> paths;
+    final private List<Path> paths;
     final private int noClients ;
     final private boolean sendAtTimestamps;
     final private CyclicBarrier barrier;

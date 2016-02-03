@@ -2,29 +2,32 @@ package serverchainsimulator.control;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import serverchainsimulator.transport.Node;
 
-import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
-public class LayerControllerTerminal implements LayerControllerDecorator {
+public class NestedLayer implements Runnable, Layer {
 
+    private static final Logger logger = LoggerFactory.getLogger(NestedLayer.class);
     private final CyclicBarrier batchStart;
     private final CyclicBarrier batchEnd;
-    private final List<? extends SelfStoppable> nodes;
+    private final List<? extends Node> nodes;
+    final private Layer next;
     private final String name;
-    private static final Logger logger = LoggerFactory.getLogger(LayerControllerTerminal.class);
 
-    public LayerControllerTerminal(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends SelfStoppable> nodes) {
+    public NestedLayer(String name, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Node> nodes, Layer next) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.nodes = nodes;
+        this.next = next;
         this.name = name;
     }
-    
+
     public boolean step(){
         logger.info(name + " awaiting...");
+        boolean result =false;
         try {
             batchStart.await();
         } catch (InterruptedException e) {
@@ -32,6 +35,11 @@ public class LayerControllerTerminal implements LayerControllerDecorator {
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
+        logger.info(name + " ...starting");
+        if(next!=null) {
+            result = next.step();
+        }
+        nodes.forEach(Node::signalBatchEnd);
         logger.info(name + " finishing...");
         try {
             batchEnd.await();
@@ -40,26 +48,16 @@ public class LayerControllerTerminal implements LayerControllerDecorator {
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
-        boolean result = !allProducersDone();
-        logger.info(name + " ...finished" + ((!result)?", result=false":""));
+        logger.info(name + " ...finished");
         return result;
     }
 
-    private boolean allProducersDone() {
-        boolean reread;
-        boolean result = true;
-        do {
-            reread = false;
-            try {
-                for (SelfStoppable prod : nodes) {
-                    if (!prod.isDone()) {
-                        result = false;
-                    }
-                }
-            } catch (ConcurrentModificationException e) {
-                reread = true;
-            }
-        } while (reread);
-        return result;
+    @Override
+    public void run() {
+        boolean run = true;
+        while(run) {
+            run = step();
+        }
+        logger.info("done");
     }
 }

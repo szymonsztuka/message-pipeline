@@ -2,7 +2,6 @@ package serverchainsimulator.transport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import serverchainsimulator.control.Stoppable;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,9 +12,9 @@ import java.util.Scanner;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
-public class Process implements Runnable, Stoppable {
+public class JvmProcess implements Runnable, Node {
 
-    private static final Logger logger = LoggerFactory.getLogger(Process.class);
+    private static final Logger logger = LoggerFactory.getLogger(JvmProcess.class);
     final private CyclicBarrier batchStart;
     final private CyclicBarrier batchEnd;
     final private String[] jvmArguments;
@@ -24,7 +23,7 @@ public class Process implements Runnable, Stoppable {
     final private String mainClass;
     private volatile boolean process = true;
 
-    public Process(String classpath, String[] jvmArguments, String mainClass, String[] programArguments, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
+    public JvmProcess(String classpath, String[] jvmArguments, String mainClass, String[] programArguments, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.classpath = classpath;
@@ -102,7 +101,6 @@ public class Process implements Runnable, Stoppable {
                 //logger.debug("start "+ i +"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                 //startTime = System.nanoTime();
                 int status = exec(mainClass, classpath, jvmArguments, programArguments, batchStart, batchEnd);
-                logger.debug("end");
                 logger.info("Bootstrap returned status " + status);
                 //long endTime = System.nanoTime();
                 //long duration = endTime - startTime;
@@ -123,6 +121,6 @@ public class Process implements Runnable, Stoppable {
 
     public void signalBatchEnd() {
         process = false;
-        logger.info("process set to " + process);
+        //logger.trace("process set to " + process);
     }
 }

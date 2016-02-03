@@ -25,31 +25,30 @@ import java.util.concurrent.CyclicBarrier;
 public class DeprecatedPullConsumer implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(DeprecatedPullConsumer.class);
-    public final InetSocketAddress adress;
+    public final InetSocketAddress address;
     volatile private boolean process = true;
     private final List<Path> paths;
     private final MessageReceiver receiver;
     final private CyclicBarrier barrier;
     RemoteShellScrip otherThread;
-    private int readCount;
 
     public DeprecatedPullConsumer(List<Path> writerPaths, MessageReceiver messageReceiver, InetSocketAddress adress, CyclicBarrier barrier, RemoteShellScrip otherThread) {
         paths = writerPaths;
         receiver = messageReceiver;
-        this.adress = adress;
+        this.address = adress;
         this.barrier = barrier;
         this.otherThread = otherThread;
     }
 
     public void signalOfBatch() {
         process = false;
-        logger.info("process set to "+ process);
+        //logger.trace("process set to "+ process);
     }
 
     @SuppressWarnings("rawtypes")
     public void run() {
         ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
-        logger.info("Consumer opening, path  " +adress);
+        logger.info("Consumer opening, path  " + address);
         try (Selector selector = Selector.open();
              SocketChannel socketChannel = SocketChannel.open()) {
             if ((socketChannel.isOpen()) && (selector.isOpen())) {
@@ -58,7 +57,7 @@ public class DeprecatedPullConsumer implements Runnable {
                 socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, 128 * 1024);
                 socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
                 socketChannel.register(selector, SelectionKey.OP_CONNECT);
-                socketChannel.connect(adress);
+                socketChannel.connect(address);
                 logger.info("Consumer: " + socketChannel.getRemoteAddress());
                 while (selector.select(1000) > 0) {
                     Set keys = selector.selectedKeys();
@@ -96,18 +95,14 @@ public class DeprecatedPullConsumer implements Runnable {
                                                 writer.write("\n");
                                                 if (logger.isTraceEnabled()) {
                                                     logger.trace("Read " + line);
-                                                } else {
-                                                    logger.info("Read " + line);
                                                 }
-                                                readCount++;
                                                 if (buffer.hasRemaining()) {
                                                     buffer.compact();
                                                 } else {
                                                     buffer.clear();
                                                 }
                                             } else if (!process) {
-                                                logger.info("file session - consumer ends;");
-
+                                                logger.info("stopped");
                                                 break;
                                             } else {
                                                 x++;
@@ -140,9 +135,5 @@ public class DeprecatedPullConsumer implements Runnable {
         } catch (IOException ex) {
             logger.error("Consumer", ex);
         }
-    }
-
-    public int getReadCount(){
-        return readCount;
     }
 }

@@ -1,5 +1,5 @@
 package serverchainsimulator.control;
 
-public interface LayerControllerDecorator {
+public interface Layer {
     boolean step();
 }
