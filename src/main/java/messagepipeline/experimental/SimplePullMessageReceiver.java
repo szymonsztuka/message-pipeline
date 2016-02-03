@@ -1,4 +1,4 @@
-package messagepipeline.experimental.examples;
+package messagepipeline.experimental;
 
 import messagepipeline.content.PullMessageReceiver;
 

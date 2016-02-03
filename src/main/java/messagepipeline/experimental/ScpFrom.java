@@ -1,5 +1,5 @@
 /* Altered copy of http://www.jcraft.com/jsch/examples/ScpFrom.java.html */
-package messagepipeline.experimental.examples;
+package messagepipeline.experimental;
 
 import com.jcraft.jsch.*;
 
