@@ -139,7 +139,7 @@ public abstract class MessagePipeline {
                 + remoteScripts.size() + " remote scripts, "
                 + processes.size() + " processes, "
                 + localScripts.size() + " local scripts ...");
-            if (producers.size() == 1 && consumers.size() == 0 && remoteScripts.size() == 0) {
+            if (localScripts.size() == 1 && producers.size() == 0 && consumers.size() == 0 && remoteScripts.size() == 0) {
                 try {
                      final Process process = Runtime.getRuntime().exec(localScripts.get(0).get("script"));
                      // exhaust input stream  http://dhruba.name/2012/10/16/java-pitfall-how-to-prevent-runtime-getruntime-exec-from-hanging/
