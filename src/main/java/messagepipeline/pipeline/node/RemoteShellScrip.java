@@ -23,7 +23,6 @@ public class RemoteShellScrip implements Runnable {
   String host;
   String password;
   String sudo_pass;
-  String command;
   CyclicBarrier barrier;
   List<String> files;
   volatile boolean  go = false;
@@ -35,7 +34,6 @@ public class RemoteShellScrip implements Runnable {
       this.host=host;
       this.password=password;
       this.sudo_pass=sudo_pass;
-      this.command=command;
       this.barrier = barrier;
       this.files = files;
       this.shellScriptGenerator = shellScriptGenerator;
@@ -43,34 +41,33 @@ public class RemoteShellScrip implements Runnable {
 
   public void signalBeginOfBatch() {
       go = true;
-      logger.info("signalBeginOfBatch go="+ go);
+      logger.trace("signalBeginOfBatch go="+ go);
   }
 
   public void run(){
       currentTime = LocalTime.now();
       DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-      logger.info("start"+user+ " "+host+ " "+ password);
       try {
     	  JSch.setConfig("StrictHostKeyChecking", "no");
 		  JSch jsch = new JSch();
 		  Session session = jsch.getSession(user, host, 22);
 		  session.setPassword(password);
-          logger.debug("connecting: " +user+ " "+host+ " "+ password);
+          logger.debug("connecting " + user + "@" + host);
           session.connect();
-          logger.debug("Connected");
+          logger.debug("connected " + user + "@" + host);
           for(String file: files) {
               Channel channel=session.openChannel("exec");
-              String  script= shellScriptGenerator.generate(currentTime.format(formatter),file);
+              String script = shellScriptGenerator.generate(currentTime.format(formatter),file);
               logger.debug(script);
               ((ChannelExec)channel).setCommand(script);
               InputStream in=channel.getInputStream();
               OutputStream out=channel.getOutputStream();
               ((ChannelExec)channel).setErrStream(System.err);
-              logger.info("await for go=" + go);
+              logger.trace("await for go=" + go);
               while(!go) {
                  Thread.sleep(20);
               }
-              logger.info("go="+ go);
+              logger.trace("go="+ go);
               channel.connect();
               //out.write((sudo_pass+"\n").getBytes());
               out.flush();
@@ -82,7 +79,7 @@ public class RemoteShellScrip implements Runnable {
                     logger.debug(new String(tmp, 0, i));
                    }
                   if (channel.isClosed()) {
-                    logger.debug("exit-status: " + channel.getExitStatus());
+                    logger.trace("exit-status: " + channel.getExitStatus());
                     break;
                   }
               }
@@ -92,7 +89,7 @@ public class RemoteShellScrip implements Runnable {
               channel = session.openChannel("exec");
               removeFile(channel, shellScriptGenerator.generateRemoteFileName(file));
               go = false;
-              logger.info("done, await");
+              logger.trace("done, await");
               barrier.await();
               currentTime = LocalTime.now();
       }
@@ -108,7 +105,7 @@ public class RemoteShellScrip implements Runnable {
     try {
     String command = "scp -f "+remoteSrcFile; ///home/ssztuka/
     ((ChannelExec)channel).setCommand(command);
-      logger.debug("Download file command "+ command);
+    logger.debug("Download file command "+ command);
     // get I/O streams for remote scp
     OutputStream out = channel.getOutputStream();
     InputStream in = channel.getInputStream();
@@ -150,7 +147,7 @@ public class RemoteShellScrip implements Runnable {
         }
 
       }
-      logger.debug("filesize="+filesize+", file="+file);
+      logger.trace("filesize="+filesize+", file="+file);
 
       // send '\0'
       buf[0]=0; out.write(buf, 0, 1); out.flush();
@@ -200,11 +197,11 @@ public class RemoteShellScrip implements Runnable {
     InputStream in=channel.getInputStream();
     OutputStream out=channel.getOutputStream();
     ((ChannelExec)channel).setErrStream(System.err);
-    logger.info("await for go=" + go);
+    logger.trace("await for go=" + go);
     while(!go) {
       Thread.sleep(20);
     }
-    logger.info("go="+ go);
+    logger.trace("go="+ go);
     channel.connect();
     //out.write((sudo_pass+"\n").getBytes());
     out.flush();
@@ -216,7 +213,7 @@ public class RemoteShellScrip implements Runnable {
         logger.debug(new String(tmp, 0, i));
       }
       if (channel.isClosed()) {
-        logger.debug("exit-status: " + channel.getExitStatus());
+        logger.trace("exit-status: " + channel.getExitStatus());
         break;
       }
     }

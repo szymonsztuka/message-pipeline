@@ -34,92 +34,111 @@ public abstract class MessagePipeline {
 
     protected abstract ShellScriptGenerator getShellScriptGenerator(String... args);
 
-    public void start(String[] args) {
+    public static Map<String,String> mergeProperties(String[] args) {
         Optional<Properties> properties = Arrays.stream(args)
-            .filter((String s) -> !s.startsWith("-"))
-            .map((String s) -> {
-                Path p = Paths.get(s);
-                Path path;
-                if (p.isAbsolute()) {
-                    path = p;
-                } else {
-                    try {
-                        Path root = Paths.get(MessagePipeline.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-                        path = root.getParent().resolveSibling(p);
-                    } catch (URISyntaxException e) {
-                        System.err.println(e); //TODO log
+                .filter((String s) -> !s.startsWith("-"))
+                .map((String s) -> {
+                    Path p = Paths.get(s);
+                    Path path;
+                    if (p.isAbsolute()) {
                         path = p;
+                    } else {
+                        try {
+                            Path root = Paths.get(MessagePipeline.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+                            path = root.getParent().resolveSibling(p);
+                        } catch (URISyntaxException e) {
+                            System.err.println(e); //TODO log
+                            path = p;
+                        }
                     }
-                }
-                return path;})
-            .map((Path p) -> {
-                Properties prop = new Properties();
-                try {
-                    prop.load(Files.newBufferedReader(p, StandardCharsets.UTF_8));
-                } catch (IOException e) {
-                    System.err.println(e);//TODO log
-                }
-                return prop;})
-            .reduce((Properties p, Properties r) -> {
-                p.putAll(r);
-                return p;});
+                    return path;
+                })
+                .map((Path p) -> {
+                    Properties prop = new Properties();
+                    try {
+                        prop.load(Files.newBufferedReader(p, StandardCharsets.UTF_8));
+                    } catch (IOException e) {
+                        System.err.println(e);//TODO log
+                    }
+                    return prop;
+                })
+                .reduce((Properties p, Properties r) -> {
+                    p.putAll(r);
+                    return p;
+                });
         Properties arguments = Arrays.stream(args)
                 .filter((String s) -> s.startsWith("-") && s.contains("="))
                 .map((String s) -> s.substring(1))
                 .collect(() -> new Properties(),
-                                   (Properties p, String s) -> p.put(s.substring(0, s.indexOf("=")),
-                                   s.substring(s.indexOf("=") + 1)),
-                                   (Properties p, Properties r) -> p.putAll(r));
+                        (Properties p, String s) -> p.put(s.substring(0, s.indexOf("=")),
+                                s.substring(s.indexOf("=") + 1)),
+                        (Properties p, Properties r) -> p.putAll(r));
         properties.get().putAll(arguments);
 
-        // (new TreeMap(fileProperties.get())).forEach((k, v) -> System.out.println(k + "=" + v));//TreeMap to order elements, Properties is a hashmap
-        //  Arrays.asList(fileProperties.get().getProperty("run").split("->|,|;")).forEach(s -> System.out.println(s.trim()));
-
-        TreeSet<String> nodesToRun = new TreeSet<>(Arrays.asList(properties.get().getProperty("run").split("->|,|;")));
-        Map<String,String> variables = properties.get().entrySet().stream().filter(e -> e.getKey().toString().startsWith("path.")).
-                collect(Collectors.toMap(
-                e -> String.valueOf(e.getKey().toString().substring(e.getKey().toString().indexOf('.')+1)),
-                e -> String.valueOf(e.getValue())));
-
-        Map<String, String> mapOfProperties = properties.get().entrySet().stream()
+        return properties.get().entrySet().stream()
                 .collect(Collectors.toMap(
                         e -> String.valueOf(e.getKey()),
                         e -> String.valueOf(e.getValue())));
+        // (new TreeMap(fileProperties.get())).forEach((k, v) -> System.out.println(k + "=" + v));//TreeMap to order elements, Properties is a hashmap
+        //  Arrays.asList(fileProperties.get().getProperty("run").split("->|,|;")).forEach(s -> System.out.println(s.trim()));
+    }
 
-        Map<String, String> selectedProperties = mapOfProperties.entrySet().stream()
+    public static Map<String, String> filterProperties(Map<String, String> properties, Set<String> selectedProperites) {
+        Map<String, String> selectedProperties = properties.entrySet().stream()
                 .filter(e -> {
                     if (e.getKey().contains(".")) {
-                        return nodesToRun.contains(e.getKey().substring(0, e.getKey().indexOf(".")));
+                        return selectedProperites.contains(e.getKey().substring(0, e.getKey().indexOf(".")));
                     } else {
-                        return nodesToRun.contains(e.getKey()) || "run".equals(e.getKey());
+                        return selectedProperites.contains(e.getKey()) || "run".equals(e.getKey());
                     }})
                 .collect(Collectors.toMap(
                         e -> e.getKey(),
                         e -> e.getValue()));
+            return selectedProperties;
+    }
 
-        final String today = (new SimpleDateFormat("dd-MMM-yy")).format(Calendar.getInstance().getTime());
-        selectedProperties = selectedProperties.entrySet().stream()
-                .collect(Collectors.toMap(e -> e.getKey(),
-                                          e -> e.getValue().replace("{dd-MMM-yy}",today)));
-        //(new TreeMap(res)).forEach((k, v) -> System.out.println(k + "=" + v));
-        final String today2 = (new SimpleDateFormat("yyyy-MMM-dd")).format(Calendar.getInstance().getTime());
-        selectedProperties = selectedProperties.entrySet().stream()
-                .collect(Collectors.toMap(e -> e.getKey(),
-                        e -> e.getValue().replace("yyyy-MMM-dd",today2)));
+    public static Map<String, String> getVariables(Map<String,String> properties, String variablePrefix) {
+        Map<String,String> variables = properties.entrySet().stream().filter(e -> e.getKey().toString().startsWith(variablePrefix)).
+                collect(Collectors.toMap(
+                        e -> String.valueOf(e.getKey().toString().substring(e.getKey().toString().indexOf('.')+1)),
+                        e -> String.valueOf(e.getValue())));
+        return variables;
+    }
 
-        selectedProperties = selectedProperties.
-                entrySet().stream().filter(e -> e.getKey().toString().startsWith("path.")==false)
+    public static Map<String, String> replaceVariables(Map<String, String> properties, Map<String,String> variables, List<String> dateFormats ) {
+
+        Map<String, String> alteredProperties = new TreeMap<>();
+        alteredProperties.putAll(properties);
+        for(String date : dateFormats) {
+            final String today = (new SimpleDateFormat(date)).format(Calendar.getInstance().getTime());
+            alteredProperties = alteredProperties.entrySet().stream()
+                    .collect(Collectors.toMap(e -> e.getKey(),
+                            e -> e.getValue().replace("{"+date+"}",today)));
+        }
+        alteredProperties = alteredProperties.entrySet().stream()
                 .collect(Collectors.toMap(
                         e -> String.valueOf(e.getKey()),
                         e -> String.valueOf(replace(e.getValue().toString(),variables))));
+        return alteredProperties;
+    }
 
-        Map<String, Map<String, String>> nodeToProperties = selectedProperties.entrySet().stream()
-                    .filter(e -> !e.getKey().equals("run"))
-                    .collect(Collectors.groupingBy(e -> e.getKey().substring(0, e.getKey().indexOf(".")),
-                                                   Collectors.toMap(e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
-                                                   e -> e.getValue())));
+    public static Map<String, Map<String, String>> wrapProperties(Map<String,String> properties) {
+        return properties.entrySet().stream().filter(e -> e.getKey().contains("."))
+                .collect(Collectors.groupingBy(e -> e.getKey().substring(0, e.getKey().indexOf(".")),
+                        Collectors.toMap(e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
+                                e -> e.getValue())));
+    }
 
-        for (String compoundStep:   Arrays.asList(properties.get().getProperty("run").split(";"))) {
+    public void start(String[] args) {
+
+        final Map<String, String> rawProperties = mergeProperties(args);
+        final Map<String, String> variables = getVariables(rawProperties, "path.");
+        final Map<String, String> properties = replaceVariables(rawProperties, variables, Arrays.asList(new String[]{"dd-MMM-yy","yyyy-MMM-dd"}));
+        final TreeSet<String> nodesToRun = new TreeSet<>(Arrays.asList(properties.get("run").split("->|,|;")));
+        final Map<String, String> selectedProperties = filterProperties(properties, nodesToRun);
+        final Map<String, Map<String, String>> nodeToProperties = wrapProperties(selectedProperties);
+
+        for (String compoundStep: Arrays.asList(properties.get("run").split(";"))) {
             final Map<String, Map<String, String>> producers = new TreeMap<>();
             final Map<String, Map<String, String>> consumers = new TreeMap<>();
             final Map<String, Map<String, String>> remoteScripts = new TreeMap<>();
@@ -154,9 +173,10 @@ public abstract class MessagePipeline {
                 + processes.size() + " processes, "
                 + localScripts.size() + " local scripts ...");
             if (localScripts.size() == 1 && producers.size() == 0 && consumers.size() == 0 && remoteScripts.size() == 0) {
-                logger.info("... to command localscript");
                 try {
-                     final Process process = Runtime.getRuntime().exec(localScripts.get(0).get("script"));
+                     String script = localScripts.values().iterator().next().get("script");
+                     logger.info("... to command localscript '" + script +"'");
+                     final Process process = Runtime.getRuntime().exec(script);
                      // exhaust input stream  http://dhruba.name/2012/10/16/java-pitfall-how-to-prevent-runtime-getruntime-exec-from-hanging/
                      final BufferedInputStream in = new BufferedInputStream(process.getInputStream());
                      final byte[] bytes = new byte[4096];
@@ -173,7 +193,7 @@ public abstract class MessagePipeline {
                 logger.info("... to command send");
                 send(producers.entrySet().iterator().next().getValue());
             } else if (producers.size() == 1 && consumers.size() > 0 && remoteScripts.size() == 0) {
-                logger.info("... to command send receive process");
+                logger.info("... to command run send receive");
                 //final List<Map<String, String>> consumerConfigs = consumers.values().stream().collect(Collectors.toList()); //map to list
                 sendReceiveInterpreter(producers, consumers, processes);
             } else if (producers.size() == 1 && consumers.size() == 2 && remoteScripts.size() == 2) {
@@ -328,7 +348,7 @@ public abstract class MessagePipeline {
                     if (processLayerName == null){ processLayerName = node.getKey();} else { processLayerName = processLayerName + ", " + node.getKey();}
                 }
                 final StatefulLayer processesLayer = new StatefulLayer(processLayerName, fileNames, batchStart, batchEnd, bootstraps, topLayer);
-                controllerThread = new Thread(processesLayer, "controller");
+                controllerThread = new Thread(processesLayer, "ctrl");
                 controllerThread.start();
                 bootstrapThreads.forEach(Thread::start);
             } else {
@@ -416,7 +436,7 @@ public abstract class MessagePipeline {
                     elem.get("sudo_pass"),
                     (i % 2 == 0? thirdLayerFileNames1: thirdLayerFileNames2),
                     barrier,
-                    getShellScriptGenerator(elem.get("commandPart1"), elem.get("commandPart2")));
+                    getShellScriptGenerator(elem.get("command")));
             thirdLayer.add(thirdLayerNode);
             i++;
         }

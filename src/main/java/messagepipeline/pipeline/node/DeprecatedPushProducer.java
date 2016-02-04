@@ -128,7 +128,7 @@ public class DeprecatedPushProducer implements Runnable {
         }
 
         public void run() {
-            logger.info("SubProducer opening " + paths);
+            //logger.info("SubProducer opening " + paths);
             String line;
             ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
 

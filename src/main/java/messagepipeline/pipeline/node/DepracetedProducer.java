@@ -47,7 +47,7 @@ public class DepracetedProducer implements Runnable {
                     String line;
                     ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
                     try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
-                    	  logger.info("Producer sending " + path);
+                    	// logger.info("Producer sending " + path);
                         while ((line = reader.readLine()) != null) {
                             if(line.length()>0) {
                                 try {
