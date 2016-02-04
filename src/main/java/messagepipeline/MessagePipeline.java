@@ -76,6 +76,10 @@ public abstract class MessagePipeline {
         //  Arrays.asList(fileProperties.get().getProperty("run").split("->|,|;")).forEach(s -> System.out.println(s.trim()));
 
         TreeSet<String> nodesToRun = new TreeSet<>(Arrays.asList(properties.get().getProperty("run").split("->|,|;")));
+        Map<String,String> variables = properties.get().entrySet().stream().filter(e -> e.getKey().toString().startsWith("path.")).
+                collect(Collectors.toMap(
+                e -> String.valueOf(e.getKey().toString().substring(e.getKey().toString().indexOf('.')+1)),
+                e -> String.valueOf(e.getValue())));
 
         Map<String, String> mapOfProperties = properties.get().entrySet().stream()
                 .collect(Collectors.toMap(
@@ -93,11 +97,21 @@ public abstract class MessagePipeline {
                         e -> e.getKey(),
                         e -> e.getValue()));
 
-        String today = (new SimpleDateFormat("dd-MMM-yy")).format(Calendar.getInstance().getTime());
+        final String today = (new SimpleDateFormat("dd-MMM-yy")).format(Calendar.getInstance().getTime());
         selectedProperties = selectedProperties.entrySet().stream()
                 .collect(Collectors.toMap(e -> e.getKey(),
                                           e -> e.getValue().replace("{dd-MMM-yy}",today)));
         //(new TreeMap(res)).forEach((k, v) -> System.out.println(k + "=" + v));
+        final String today2 = (new SimpleDateFormat("yyyy-MMM-dd")).format(Calendar.getInstance().getTime());
+        selectedProperties = selectedProperties.entrySet().stream()
+                .collect(Collectors.toMap(e -> e.getKey(),
+                        e -> e.getValue().replace("yyyy-MMM-dd",today2)));
+
+        selectedProperties = selectedProperties.
+                entrySet().stream().filter(e -> e.getKey().toString().startsWith("path.")==false)
+                .collect(Collectors.toMap(
+                        e -> String.valueOf(e.getKey()),
+                        e -> String.valueOf(replace(e.getValue().toString(),variables))));
 
         Map<String, Map<String, String>> nodeToProperties = selectedProperties.entrySet().stream()
                     .filter(e -> !e.getKey().equals("run"))
@@ -140,6 +154,7 @@ public abstract class MessagePipeline {
                 + processes.size() + " processes, "
                 + localScripts.size() + " local scripts ...");
             if (localScripts.size() == 1 && producers.size() == 0 && consumers.size() == 0 && remoteScripts.size() == 0) {
+                logger.info("... to command localscript");
                 try {
                      final Process process = Runtime.getRuntime().exec(localScripts.get(0).get("script"));
                      // exhaust input stream  http://dhruba.name/2012/10/16/java-pitfall-how-to-prevent-runtime-getruntime-exec-from-hanging/
@@ -155,7 +170,7 @@ public abstract class MessagePipeline {
                     e.printStackTrace();
                 }
             } else if (producers.size() == 1 && consumers.size() == 0 && remoteScripts.size() == 0) {
-                logger.info(" to command send");
+                logger.info("... to command send");
                 send(producers.entrySet().iterator().next().getValue());
             } else if (producers.size() == 1 && consumers.size() > 0 && remoteScripts.size() == 0) {
                 logger.info("... to command send receive process");
@@ -481,6 +496,15 @@ public abstract class MessagePipeline {
         done.countDown();
         //}
         logger.info("All done!");
+    }
+
+    public static String replace(String value, Map<String,String> variables) {
+        for(Map.Entry<String,String> var: variables.entrySet()) {
+            if(value.contains("{"+var.getKey()+"}")){
+                value = value.replace("{"+var.getKey()+"}", var.getValue());
+            }
+        }
+        return value;
     }
 
     private static String getNextAvailablePath(String name){
