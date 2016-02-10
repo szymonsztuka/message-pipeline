@@ -50,27 +50,27 @@ public class DeprecatedPushProducer implements Runnable {
     public void run() {
         List<SubProducer> threads = new ArrayList<>();
         List<Thread> realThreads = new ArrayList<>();
-    	logger.info("Multi DepracetedProducer opening for "+ noClients +" clients");
+    	logger.info("Multi DeprecatedProducer opening for "+ noClients +" clients");
         try { 
-        	ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();  logger.info("DepracetedProducer open");
+        	ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();  logger.info("DeprecatedProducer open");
         
-            if (serverSocketChannel.isOpen()) {  logger.info("DepracetedProducer is open");
+            if (serverSocketChannel.isOpen()) {  logger.info("DeprecatedProducer is open");
                 serverSocketChannel.configureBlocking(true);
                 serverSocketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
                 serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-                serverSocketChannel.bind(address); logger.info("DepracetedProducer accepting on " + address.toString());
+                serverSocketChannel.bind(address); logger.info("DeprecatedProducer accepting on " + address.toString());
                 for (int i =0 ; i <noClients; i++) {
                 //while(true && !allDone(threads)) {
                     try{ 
                     	SocketChannel socketChannel = serverSocketChannel.accept();              
-                        logger.info("DepracetedProducer connected " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
+                        logger.info("DeprecatedProducer connected " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
                         SubProducer subProducer = new SubProducer(socketChannel, paths, generators.get(i));
                         threads.add(subProducer);                
                         Thread subThread = new Thread(subProducer);
                         subThread.start();
                         realThreads.add(subThread);
                     } catch (IOException ex) {
-                        logger.error("DepracetedProducer cannot read data ", ex);
+                        logger.error("DeprecatedProducer cannot read data ", ex);
                     }
                 }
             } else {
@@ -96,7 +96,7 @@ public class DeprecatedPushProducer implements Runnable {
             logger.error(e.getMessage(), e);
         }
         done.countDown();
-        logger.info("DepracetedProducer is done! " + done.getCount());
+        logger.info("DeprecatedProducer is done! " + done.getCount());
     }
     }
 
@@ -141,7 +141,7 @@ public class DeprecatedPushProducer implements Runnable {
 
                 ////////////
                 try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
-                    logger.info("DepracetedProducer sending " + path);
+                    logger.info("DeprecatedProducer sending " + path);
                     while ((line = reader.readLine()) != null) {
                         if (line.length() > 0) {
                             try {
@@ -153,12 +153,12 @@ public class DeprecatedPushProducer implements Runnable {
                                 }
                                 buffer.clear();
                             } catch (BufferOverflowException ex) {
-                                logger.error("DepracetedProducer error", ex);
+                                logger.error("DeprecatedProducer error", ex);
                             }
                         }
                     }
                 } catch (IOException ex) {
-                    logger.error("DepracetedProducer cannot read data ", ex);
+                    logger.error("DeprecatedProducer cannot read data ", ex);
                 }////////////////
                 try {
                     Thread.sleep(1000 * 5);

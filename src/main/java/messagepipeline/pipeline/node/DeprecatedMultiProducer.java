@@ -108,7 +108,7 @@ public class DeprecatedMultiProducer implements Runnable {
             String line;
             ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
             try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
-                logger.info("DepracetedProducer sending " + path);
+                logger.info("DeprecatedProducer sending " + path);
                 while ((line = reader.readLine()) != null) {
                     if(line.length()>0) {
                         try {
@@ -117,12 +117,12 @@ public class DeprecatedMultiProducer implements Runnable {
                             socketChannel.write(buffer);
                             buffer.clear();
                         }catch(BufferOverflowException ex){
-                            logger.error("DepracetedProducer error", ex);
+                            logger.error("DeprecatedProducer error", ex);
                         }
                     }
                 }
             }  catch (IOException ex) {
-                logger.error("DepracetedProducer cannot read data ", ex);
+                logger.error("DeprecatedProducer cannot read data ", ex);
             }
             try {
 				socketChannel.close();

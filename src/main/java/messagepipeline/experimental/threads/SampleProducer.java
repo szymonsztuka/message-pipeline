@@ -32,6 +32,6 @@ public class SampleProducer implements Producer {
                 e.printStackTrace();
             }
         }
-        System.out.println("DepracetedProducer End\n");
+        System.out.println("DeprecatedProducer End\n");
     }
 }

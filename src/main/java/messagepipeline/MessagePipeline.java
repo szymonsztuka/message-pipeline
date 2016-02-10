@@ -234,7 +234,7 @@ public abstract class MessagePipeline {
                         noOfClients,
                         "true".equals(values.get("output.realtime")));
             } else {
-                producer = new DepracetedProducer(done,
+                producer = new DeprecatedProducer(done,
                         readerIt.next(),
                         getMessageGenerator( values.get("output.format")),
                         new InetSocketAddress(values.get("output.ip"), Integer.parseInt(values.get("output.port"))),

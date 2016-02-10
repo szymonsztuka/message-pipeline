@@ -17,16 +17,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import messagepipeline.message.MessageGenerator;
 
-public class DepracetedProducer implements Runnable {
+public class DeprecatedProducer implements Runnable {
 
-    private static final Logger logger = LoggerFactory.getLogger(DepracetedProducer.class);
+    private static final Logger logger = LoggerFactory.getLogger(DeprecatedProducer.class);
     final private MessageGenerator generator;
     final private CountDownLatch done;
     final private InetSocketAddress address;
     final private boolean sendAtTimestamps;
     Path path;
 
-    public DepracetedProducer(CountDownLatch latch, Path readerPath, MessageGenerator messageGenerator, InetSocketAddress address, boolean sendAtTimestamps) {
+    public DeprecatedProducer(CountDownLatch latch, Path readerPath, MessageGenerator messageGenerator, InetSocketAddress address, boolean sendAtTimestamps) {
         done = latch;
         path = readerPath;
         generator = messageGenerator;
