@@ -91,7 +91,7 @@ public class DeprecatedPushProducer implements Runnable {
         } catch (IOException ex) {
             logger.error(ex.getMessage(), ex);
         try {
-            Thread.sleep(1000 * 2);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             logger.error(e.getMessage(), e);
         }
@@ -128,18 +128,17 @@ public class DeprecatedPushProducer implements Runnable {
         }
 
         public void run() {
-            //logger.info("SubProducer opening " + paths);
             String line;
             ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
-
+            long i = 1;
             for(Path path : paths) {
                 try {
-                    Thread.sleep(1000 * 3);
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-
-                ////////////
+                System.out.print(String.format("Running [%2d %%] %30s %30s\r", ((i * 100) / paths.size()), path.toString(), "                            "));
+                i++;
                 try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
                     logger.info("DeprecatedProducer sending " + path);
                     while ((line = reader.readLine()) != null) {
@@ -148,9 +147,9 @@ public class DeprecatedPushProducer implements Runnable {
                                 generator.write(line, buffer, sendAtTimestamps);
                                 buffer.flip();
                                 socketChannel.write(buffer);
-                                if(buffer.remaining() > 0) {
+                                //if(buffer.remaining() > 0) {
                                     //System.out.println("! remaining " + buffer.remaining() + " " + buffer.limit()+ " "+ buffer.position());
-                                }
+                                //}
                                 buffer.clear();
                             } catch (BufferOverflowException ex) {
                                 logger.error("DeprecatedProducer error", ex);
@@ -159,9 +158,9 @@ public class DeprecatedPushProducer implements Runnable {
                     }
                 } catch (IOException ex) {
                     logger.error("DeprecatedProducer cannot read data ", ex);
-                }////////////////
+                }
                 try {
-                    Thread.sleep(1000 * 5);
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -174,10 +173,10 @@ public class DeprecatedPushProducer implements Runnable {
                             e.signalOfBatch();
                         }
                     }
-                    //logger.info("-> " + barrier.getNumberWaiting());
+                    logger.info("-> " + barrier.getNumberWaiting());
                     barrier.await();
                     endOfBatch.decrementAndGet();
-                    //logger.info("-> " + barrier.getNumberWaiting() + " -> ");
+                    logger.info("-> " + barrier.getNumberWaiting() + " -> ");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {
@@ -196,6 +195,4 @@ public class DeprecatedPushProducer implements Runnable {
             logger.info("SubProducer closing");
         }
     }
-
-
 }

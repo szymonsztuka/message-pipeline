@@ -4,12 +4,15 @@ package messagepipeline.experimental;
 import com.jcraft.jsch.*;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ScpFrom{
 
 
     public static void get(String user, String host, String password, String localDestFile, String remoteSrcFile ){
 
+        List<String> a = new ArrayList<String>();
         FileOutputStream fos = null;
         try {
         	JSch.setConfig("StrictHostKeyChecking", "no");		 

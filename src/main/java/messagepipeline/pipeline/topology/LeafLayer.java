@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import messagepipeline.pipeline.node.LeafNode;
 
+import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
@@ -23,7 +24,13 @@ public class LeafLayer implements Layer {
         this.nodes = nodes;
         this.name = name;
     }
-    
+
+    public void start(){
+        List<Thread> threads = new ArrayList<>(nodes.size());
+        threads.add(new Thread((Runnable)nodes,nodes.getClass().getName()));
+        threads.forEach(Thread::start);
+    }
+
     public boolean step(String stepName){
         logger.info(name + " awaiting " + stepName + " ...");
         try {

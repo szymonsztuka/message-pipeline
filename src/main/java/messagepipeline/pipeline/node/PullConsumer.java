@@ -70,7 +70,6 @@ public class PullConsumer implements Runnable, Node {
                         its.remove();
                         try (SocketChannel keySocketChannel = (SocketChannel) key.channel()) {
                             if (key.isConnectable()) {
-                                //logger.info("Consumer connecting " + path);
                                 if (keySocketChannel.isConnectionPending()) {
                                     keySocketChannel.finishConnect();
                                 }
@@ -94,7 +93,7 @@ public class PullConsumer implements Runnable, Node {
                                                 buffer.flip();
                                                 String line = receiver.read(buffer);
                                                 writer.write(line);
-                                                writer.write("\n");
+                                                writer.newLine();
                                                 logger.trace("read " + line);
                                                 if (buffer.hasRemaining()) {
                                                     buffer.compact();

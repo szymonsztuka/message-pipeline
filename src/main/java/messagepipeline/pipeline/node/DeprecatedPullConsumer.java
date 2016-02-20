@@ -30,14 +30,14 @@ public class DeprecatedPullConsumer implements Runnable {
     private final List<Path> paths;
     private final MessageReceiver receiver;
     final private CyclicBarrier barrier;
-    RemoteShellScrip otherThread;
+    List<RemoteShellScrip> otherThreads;
 
-    public DeprecatedPullConsumer(List<Path> writerPaths, MessageReceiver messageReceiver, InetSocketAddress adress, CyclicBarrier barrier, RemoteShellScrip otherThread) {
+    public DeprecatedPullConsumer(List<Path> writerPaths, MessageReceiver messageReceiver, InetSocketAddress adress, CyclicBarrier barrier, List<RemoteShellScrip> otherThreads) {
         paths = writerPaths;
         receiver = messageReceiver;
         this.address = adress;
         this.barrier = barrier;
-        this.otherThread = otherThread;
+        this.otherThreads = otherThreads;
     }
 
     public void signalOfBatch() {
@@ -67,7 +67,6 @@ public class DeprecatedPullConsumer implements Runnable {
                         its.remove();
                         try (SocketChannel keySocketChannel = (SocketChannel) key.channel()) {
                             if (key.isConnectable()) {
-                                //logger.info("Consumer connecting " + path);
                                 if (keySocketChannel.isConnectionPending()) {
                                     keySocketChannel.finishConnect();
                                 }
@@ -92,7 +91,7 @@ public class DeprecatedPullConsumer implements Runnable {
                                                 buffer.flip();
                                                 String line = receiver.read(buffer);
                                                 writer.write(line);
-                                                writer.write("\n");
+                                                writer.newLine();
                                                 if (logger.isTraceEnabled()) {
                                                     logger.trace("Read " + line);
                                                 }
@@ -110,12 +109,12 @@ public class DeprecatedPullConsumer implements Runnable {
                                         }
                                     }
                                     try {
-                                        if(otherThread!=null) {
-                                            otherThread.signalBeginOfBatch();
+                                        if(otherThreads!=null) {
+                                            otherThreads.forEach(RemoteShellScrip::signalBeginOfBatch);
                                         }
-                                        //logger.info("-> " + barrier.getNumberWaiting());
+                                        logger.info("-> " + barrier.getNumberWaiting());
                                         barrier.await();
-                                        //logger.info("-> " + barrier.getNumberWaiting() +" -> ");
+                                        logger.info("-> " + barrier.getNumberWaiting() +" -> ");
                                         process = true;
                                     } catch (InterruptedException e) {
                                         e.printStackTrace();

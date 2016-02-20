@@ -1,5 +1,6 @@
 package messagepipeline;
 
+import messagepipeline.pipeline.topology.Layer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import messagepipeline.message.MessageGenerator;
@@ -167,24 +168,35 @@ public abstract class MessagePipeline {
                     logger.warn("Command " + key + " not recognized");
                 }
             }
-            logger.info("Dispatching " + producers.size() + " producers, "
+
+
+            /*logger.info("Dispatching " + producers.size() + " producers, "
                 + consumers.size() + " consumers, "
                 + remoteScripts.size() + " remote scripts, "
                 + processes.size() + " processes, "
-                + localScripts.size() + " local scripts ...");
+                + localScripts.size() + " local scripts ...");*/
             if (localScripts.size() == 1 && producers.size() == 0 && consumers.size() == 0 && remoteScripts.size() == 0) {
                 try {
                      String script = localScripts.values().iterator().next().get("script");
-                     logger.info("... to command localscript '" + script +"'");
-                     final Process process = Runtime.getRuntime().exec(script);
-                     // exhaust input stream  http://dhruba.name/2012/10/16/java-pitfall-how-to-prevent-runtime-getruntime-exec-from-hanging/
-                     final BufferedInputStream in = new BufferedInputStream(process.getInputStream());
-                     final byte[] bytes = new byte[4096];
-                     while (in.read(bytes) != -1) {}// wait for completion
-                     try {
-                         process.waitFor();
-                     } catch (InterruptedException e) {
-                         e.printStackTrace();
+                     if(script!=null) {
+                         String info = "Running " + script;
+                         logger.info("... to command localscript '" + script + "'");
+                         System.out.print( info );
+                         final Process process = Runtime.getRuntime().exec(script);
+                         // exhaust input stream  http://dhruba.name/2012/10/16/java-pitfall-how-to-prevent-runtime-getruntime-exec-from-hanging/
+                         final BufferedInputStream in = new BufferedInputStream(process.getInputStream());
+                         final byte[] bytes = new byte[4096];
+                         while (in.read(bytes) != -1) {
+                         }// wait for completion
+                         try {
+                             process.waitFor();
+                         } catch (InterruptedException e) {
+                             e.printStackTrace();
+                         }
+                         for(int i=0; i < info.length(); i++) {
+                             System.out.print("\b");
+                         }
+                         System.out.println("Done    " + script);
                      }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -196,7 +208,7 @@ public abstract class MessagePipeline {
                 logger.info("... to command run send receive");
                 //final List<Map<String, String>> consumerConfigs = consumers.values().stream().collect(Collectors.toList()); //map to list
                 sendReceiveInterpreter(producers, consumers, processes);
-            } else if (producers.size() == 1 && consumers.size() == 2 && remoteScripts.size() == 2) {
+            } else if (producers.size() == 1 && consumers.size() == 2 && remoteScripts.size() == 3) {
                 logger.info("... to command send receive remote scripts");
                 Map<String, String> producerConfigs = producers.entrySet().iterator().next().getValue();
                 Iterator<Map.Entry<String, Map<String, String>>> consumerIterator = consumers.entrySet().iterator();
@@ -204,7 +216,8 @@ public abstract class MessagePipeline {
                 consumerConfigs.add(consumerIterator.next().getValue());
                 consumerConfigs.add(consumerIterator.next().getValue());
                 Iterator<Map.Entry<String, Map<String, String>>> remoteScriptIterator = remoteScripts.entrySet().iterator();
-                List<Map<String, String>> scriptConfig = new ArrayList<>(2);
+                List<Map<String, String>> scriptConfig = new ArrayList<>(3);
+                scriptConfig.add(remoteScriptIterator.next().getValue());
                 scriptConfig.add(remoteScriptIterator.next().getValue());
                 scriptConfig.add(remoteScriptIterator.next().getValue());
                 sendReceiveThreeLayers(producerConfigs, consumerConfigs, scriptConfig);
@@ -385,6 +398,92 @@ public abstract class MessagePipeline {
         logger.info("done");
     }
 
+    public LeafLayer createLeafLayer(Map<String, Map<String, String>> command, List<String> names) {
+        CyclicBarrier startBarrier = new CyclicBarrier(command.size() + 1);
+        CyclicBarrier stopBarrier = new CyclicBarrier(command.size() + 1);
+        List<LeafNode> nodes = new ArrayList<>(command.size());
+        for(Map.Entry<String,Map<String,String>> e : command.entrySet()) {
+            if ("sender".equals(e.getValue().get("type"))
+                    && "files".equals(e.getValue().get("input"))
+                    && "tcpserver".equals(e.getValue().get("output"))) {
+                int clientsNumber;
+                if(Integer.parseInt(e.getValue().get("output.clients.number")) > 0) {
+                    clientsNumber = Integer.parseInt(e.getValue().get("output.clients.number"));
+                } else {
+                    clientsNumber = 1;
+                }
+                List generators = new ArrayList<>(clientsNumber);
+                for (int j = 0; j < clientsNumber; j++) {
+                    generators.add(getMessageGenerator(e.getValue().get("output.format")));
+                }
+                PushProducer producer = new PushProducer(
+                        e.getKey(),
+                        e.getValue().get("input.directory"),
+                        names,
+                        generators,
+                        new InetSocketAddress(e.getValue().get("output.ip"), Integer.parseInt(e.getValue().get("output.port"))),
+                        "true".equals(e.getValue().get("output.realtime")),
+                        startBarrier,
+                        stopBarrier);
+                nodes.add(producer);
+          } else if ("receiver".equals(e.getValue().get("type"))
+                    && "tcpclient".equals(e.getValue().get("input"))
+                    && "files".equals(e.getValue().get("output"))) {
+              //
+            } else if ("remotescript".equals(e.getValue().get("type"))
+                    && e.getValue().containsKey("host")
+                    && e.getValue().containsKey("user")
+                    && e.getValue().containsKey("password")) {
+                //remoteScripts.put(e.getKey(), e.getValue());
+            } else if ("javaprocess".equals(e.getValue().get("type"))) {
+                //processes.put(e.getKey(), e.getValue());
+            } else if ("localscript".equals(e.getValue().get("type"))) {
+                //localScripts.put(e.getKey(), e.getValue());
+            }
+        }
+       LeafLayer layer = new LeafLayer("", startBarrier, stopBarrier, nodes);
+        return layer;
+    }
+
+    public NestedLayer createLayer(Map<String, Map<String, String>> command, List<String> names, Layer next) {
+        CyclicBarrier startBarrier = new CyclicBarrier(command.size() + 1);
+        CyclicBarrier stopBarrier = new CyclicBarrier(command.size() + 1);
+        List<Node> nodes = new ArrayList<>(command.size());
+        for(Map.Entry<String,Map<String,String>> e : command.entrySet()) {
+            if ("sender".equals(e.getValue().get("type"))
+                    && "files".equals(e.getValue().get("input"))
+                    && "tcpserver".equals(e.getValue().get("output"))) {
+                 //
+            } else if ("receiver".equals(e.getValue().get("type"))
+                    && "tcpclient".equals(e.getValue().get("input"))
+                    && "files".equals(e.getValue().get("output"))) {
+                final PullConsumer consumer = new PullConsumer(getNextAvailablePath(e.getValue().get("output.directory")),
+                        names,
+                        getMessageReceiver(e.getValue().get("input.format")),
+                        new InetSocketAddress(e.getValue().get("input.ip"), Integer.parseInt(e.getValue().get("input.port"))),
+                        startBarrier,
+                        stopBarrier);
+                nodes.add(consumer);
+            } else if ("remotescript".equals(e.getValue().get("type"))
+                    && e.getValue().containsKey("host")
+                    && e.getValue().containsKey("user")
+                    && e.getValue().containsKey("password")) {
+                //remoteScripts.put(e.getKey(), e.getValue());
+            } else if ("javaprocess".equals(e.getValue().get("type"))) {
+                final JvmProcess process = new JvmProcess(e.getValue().get("classpath"),
+                        e.getValue().get("jvmArguments").split(" "),
+                        e.getValue().get("mainClass"),
+                        e.getValue().get("programArguments").split(" "),
+                        startBarrier,
+                        stopBarrier);
+            } else if ("localscript".equals(e.getValue().get("type"))) {
+                //localScripts.put(e.getKey(), e.getValue());
+            }
+        }
+        NestedLayer layer = new NestedLayer("", names, startBarrier, stopBarrier, nodes, next);
+        return layer;
+    }
+
     @Deprecated
     public void sendReceiveThreeLayers(Map<String,String> producerConfigs, List<Map<String,String>> consumerConfigs, List<Map<String,String>> remoteScriptConfigs) {
 
@@ -395,19 +494,24 @@ public abstract class MessagePipeline {
         final List<Path> writerFileNames1 = generateConsumerPaths(outputDir1, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
 
         final Path outputDir2 = generateConsumerRootDir(Paths.get(consumerConfigs.get(1).get("output.directory")));
-        System.out.println("output " +outputDir2);
+        //System.out.println("output " + outputDir2);
         final List<Path> writerFileNames2 = generateConsumerPaths(outputDir2, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
 
 
         final Path thirdLayerOutputDir1 = generateConsumerRootDir(Paths.get(remoteScriptConfigs.get(0).get("output.directory")));
-        System.out.println("output " +thirdLayerOutputDir1);
+        //System.out.println("output " + thirdLayerOutputDir1);
         final List<Path>  thirdLayerWriterFileNames1 = generateConsumerPaths(thirdLayerOutputDir1, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
 
         final Path thirdLayerOutputDir2 = generateConsumerRootDir(Paths.get(remoteScriptConfigs.get(1).get("output.directory")));
-        System.out.println("output " +thirdLayerOutputDir2);
+        //System.out.println("output " + thirdLayerOutputDir2);
         final List<Path>  thirdLayerWriterFileNames2 = generateConsumerPaths(thirdLayerOutputDir2, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
 
-        CyclicBarrier barrier = new CyclicBarrier(6); //updated for SSH
+        final Path thirdLayerOutputDir3 = generateConsumerRootDir(Paths.get(remoteScriptConfigs.get(2).get("output.directory")));
+        //System.out.println("output " + thirdLayerOutputDir3);
+        final List<Path>  thirdLayerWriterFileNames3 = generateConsumerPaths(thirdLayerOutputDir3, readerFileNames, Paths.get(producerConfigs.get("input.directory")));
+
+
+        CyclicBarrier barrier = new CyclicBarrier(7); //updated for SSH (1 producer, 2 consumer, 3 ssh))
         CountDownLatch done = new CountDownLatch(2);
 
         final List<RemoteShellScrip> thirdLayer = new ArrayList<>();
@@ -420,13 +524,17 @@ public abstract class MessagePipeline {
         for (Iterator<Path> it = thirdLayerWriterFileNames2.iterator(); it.hasNext(); ) {
             thirdLayerFileNames2.add(it.next().toString());
         }
+        final List<String> thirdLayerFileNames3 = new ArrayList<>();
+        for (Iterator<Path> it = thirdLayerWriterFileNames3.iterator(); it.hasNext(); ) {
+            thirdLayerFileNames3.add(it.next().toString());
+        }
 
         final List<String> fileNames = new ArrayList<>();
         for (Iterator<Path> it = writerFileNames1.iterator(); it.hasNext(); ){
             fileNames.add(it.next().toString());
         }
         Iterator<Map<String,String>> thirdLayerIt = remoteScriptConfigs.iterator();
-        int i=0;
+        int i=1;
         while (thirdLayerIt.hasNext()) {
             Map<String,String> elem = thirdLayerIt.next();
             RemoteShellScrip thirdLayerNode = new RemoteShellScrip(
@@ -434,7 +542,7 @@ public abstract class MessagePipeline {
                     elem.get("host"),
                     elem.get("password"),
                     elem.get("sudo_pass"),
-                    (i % 2 == 0? thirdLayerFileNames1: thirdLayerFileNames2),
+                    (i ==1 ? thirdLayerFileNames1: ( i==2? thirdLayerFileNames2: thirdLayerFileNames3)),
                     barrier,
                     getShellScriptGenerator(elem.get("command")));
             thirdLayer.add(thirdLayerNode);
@@ -449,16 +557,21 @@ public abstract class MessagePipeline {
             thirdLayerThreads.add(t);
         }
 
+        ArrayList x = new ArrayList<>(1);
+        x.add(thirdLayer.get(0));
         DeprecatedPullConsumer consumer1 = new DeprecatedPullConsumer(writerFileNames1,
                 getMessageReceiver(consumerConfigs.get(0).get("input.format")),
                 new InetSocketAddress(consumerConfigs.get(0).get("input.ip"), Integer.parseInt(consumerConfigs.get(0).get("input.port"))),
                 barrier,
-                thirdLayer.get(0));
+                x);
+        ArrayList y = new ArrayList<>(2);
+        y.add(thirdLayer.get(1));
+        y.add(thirdLayer.get(2));
         DeprecatedPullConsumer consumer2 = new DeprecatedPullConsumer(writerFileNames2,
                 getMessageReceiver(consumerConfigs.get(1).get("input.format")),
                 new InetSocketAddress(consumerConfigs.get(1).get("input.ip"), Integer.parseInt(consumerConfigs.get(1).get("input.port"))),
                 barrier,
-                thirdLayer.get(1));
+                y);
         List<DeprecatedPullConsumer> consumers = new ArrayList<>(2);
         consumers.add(consumer1);
         consumers.add(consumer2);
@@ -482,7 +595,7 @@ public abstract class MessagePipeline {
         Thread consumerThread1 = new Thread(consumer1);
         Thread consumerThread2 = new Thread(consumer2);
 
-        System.out.println("Consumer start!");
+        //System.out.println("Consumer start!");
         consumerThread1.start();
         consumerThread2.start();
         try {
@@ -490,7 +603,7 @@ public abstract class MessagePipeline {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        System.out.println("Producer start!");
+        //System.out.println("Producer start!");
         producerThread.start();
         try {
             producerThread.join();
@@ -499,13 +612,13 @@ public abstract class MessagePipeline {
             e1.printStackTrace();
         }
         try {
-            Thread.sleep(1000 * 10);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         //logger.info("Terminating consumer!");
         //consumer.terminate();
-        System.out.println("Awaiting join consumer!");
+        //System.out.println("Awaiting join consumer!");
         try {
             consumerThread1.join();
             consumerThread2.join();
@@ -515,7 +628,8 @@ public abstract class MessagePipeline {
         }
         done.countDown();
         //}
-        logger.info("All done!");
+        logger.info("done");
+        System.out.print(String.format("Done [100 %%] %60s\n", "                                                        "));
     }
 
     public static String replace(String value, Map<String,String> variables) {
@@ -562,22 +676,15 @@ public abstract class MessagePipeline {
     }
     @Deprecated
     private static Path generateConsumerRootDir(final Path outputDir) {
-        final String n;
-        if(outputDir.toString().contains("/output/")) {
-            n = outputDir.toString().replace("/output/", "/output/"+(new SimpleDateFormat("yyyy-MM-dd-HH").format(new Date()))+"/");
-        } else {
-            n = outputDir.toString().replace("\\output\\", "\\output\\"+(new SimpleDateFormat("yyyy-MM-dd-HH").format(new Date()))+"\\");
-        }
-        Path root = Paths.get(n);
-        if (Files.notExists(root)) {
+        if (Files.notExists(outputDir)) {
             try {
-                Files.createDirectories(root);
+                Files.createDirectories(outputDir);
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
-        return root;
+        return outputDir;
     }
     @Deprecated
     private static List<Path> generateConsumerPaths(Path outputDir, List<Path> producerInputPath, Path inputDir) {

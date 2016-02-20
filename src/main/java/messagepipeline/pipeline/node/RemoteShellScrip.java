@@ -62,7 +62,7 @@ public class RemoteShellScrip implements Runnable {
               ((ChannelExec)channel).setCommand(script);
               InputStream in=channel.getInputStream();
               OutputStream out=channel.getOutputStream();
-              ((ChannelExec)channel).setErrStream(System.err);
+              ((ChannelExec)channel).setErrStream(new NullOutputStream()/*System.err*/);
               logger.trace("await for go=" + go);
               while(!go) {
                  Thread.sleep(20);
@@ -154,20 +154,44 @@ public class RemoteShellScrip implements Runnable {
 
       // read a message of lfile
       if (Files.notExists(Paths.get(localDestFile).getParent())) {
-        Files.createDirectories(Paths.get(localDestFile).getParent());
+            Files.createDirectories(Paths.get(localDestFile).getParent());
       }
 
-      fos=new FileOutputStream( localDestFile);
+      fos = new FileOutputStream(localDestFile);
       int foo;
-      while(true){
-        if(buf.length<filesize) foo=buf.length;
-        else foo=(int)filesize;
-        foo=in.read(buf, 0, foo);
-        if(foo<0){
-          // error
-          break;
+      //boolean cr = false;
+      while(true) {
+        if(buf.length<filesize)
+            foo=buf.length;
+        else
+            foo=(int)filesize;
+        foo = in.read(buf, 0, foo);
+        if (foo < 0){
+          break;// error
         }
-        fos.write(buf, 0, foo);
+              final byte[] transformed = new byte[foo * 2];
+              int len = 0;
+
+              for (int i = 0; i < foo; i++)
+              {
+                  if (buf[i] == (byte) '\n')         // LF
+                  {
+                      if (i -1 > 0 &&
+                              buf[i-1] != (byte) '\r')
+                      {
+                          transformed[len] = (byte) '\r';
+                          len++;
+                      }
+                  }
+                  transformed[len] = buf[i];
+                  len++;
+              }
+              final byte[] result = new byte[len];
+              System.arraycopy(transformed, 0, result, 0, len);
+
+          fos.write(result, 0, len);
+        //fos.write(buf, 0, foo);
+
         filesize-=foo;
         if(filesize==0L) break;
       }
@@ -196,7 +220,7 @@ public class RemoteShellScrip implements Runnable {
     ((ChannelExec)channel).setCommand(script);
     InputStream in=channel.getInputStream();
     OutputStream out=channel.getOutputStream();
-    ((ChannelExec)channel).setErrStream(System.err);
+    ((ChannelExec)channel).setErrStream(new NullOutputStream()/*System.err*/);
     logger.trace("await for go=" + go);
     while(!go) {
       Thread.sleep(20);
@@ -253,4 +277,11 @@ public class RemoteShellScrip implements Runnable {
     }
     return b;
   }
+
+    private class NullOutputStream extends OutputStream {
+        @Override
+        public void write(int b) throws IOException {
+            //logger.debug(String.valueOf(b));
+        }
+    }
 }

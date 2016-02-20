@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import messagepipeline.pipeline.node.Node;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
@@ -26,6 +27,12 @@ public class NestedLayer implements Runnable, Layer {
         this.next = next;
         this.name = name;
         this.fileNames = names;
+    }
+
+    public void start(){
+        List<Thread> threads = new ArrayList<>(nodes.size());
+        threads.add(new Thread((Runnable)nodes,nodes.getClass().getName()));
+        threads.forEach(Thread::start);
     }
 
     public boolean step(String stepName){
@@ -58,10 +65,15 @@ public class NestedLayer implements Runnable, Layer {
     @Override
     public void run() {
         boolean run = true;
+        long i = 0;
         Iterator<String> nameIterator = fileNames.iterator();
         while(run) {
-            run = step(nameIterator.next());
+            String fileName = nameIterator.next();
+            run = step(fileName);
+            System.out.print(String.format("Running [%2d %%] %30s %20s\r", ((i * 100) / fileNames.size()), fileName, "                  "));
+            i++;
         }
+        System.out.print("done");
         logger.info("done");
     }
 }
