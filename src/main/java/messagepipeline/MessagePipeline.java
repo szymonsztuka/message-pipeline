@@ -1,5 +1,7 @@
 package messagepipeline;
 
+import messagepipeline.experimental.*;
+import messagepipeline.pipeline.node.Node;
 import messagepipeline.pipeline.topology.Layer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +25,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 public abstract class MessagePipeline {
@@ -226,6 +229,7 @@ public abstract class MessagePipeline {
             }
         }
     }
+
 
     @Deprecated
     public void send(Map<String,String> values) {
@@ -484,7 +488,45 @@ public abstract class MessagePipeline {
         return layer;
     }
 
-    @Deprecated
+    public Layer walk(messagepipeline.experimental.Node n, Map<String, Map<String, String>> allCommands, List<String> names ){
+
+
+
+        Map<String, Map<String, String>> leyarCommands =
+            allCommands.entrySet().stream().filter(a->n.layer.contains(a.getKey())).collect(Collectors.toMap(
+                    e -> e.getKey(),
+                    e -> e.getValue()));
+        if(n.children.size()==0) {
+            return createLeafLayer( leyarCommands,  names);
+        } else {
+            Layer l = walk(n.children.get(0), allCommands, names);
+            return createLayer(leyarCommands, names, l);
+        }
+    }
+
+    public void start2(String[] args) {
+
+        Map<String, String> rawProperties = mergeProperties(args);
+        Map<String, String> variables = getVariables(rawProperties, "path.");
+        Map<String, String> properties = replaceVariables(rawProperties, variables, Arrays.asList(new String[]{"dd-MMM-yy", "yyyy-MMM-dd"}));
+        TreeSet<String> nodesToRun = new TreeSet<>(Arrays.asList(properties.get("run").split("->|,|;")));
+        Map<String, String> selectedProperties = filterProperties(properties, nodesToRun);
+        Map<String, Map<String, String>> nodeToProperties = wrapProperties(selectedProperties);
+        Set<String> dirs = nodeToProperties.entrySet().stream().filter(a->a.getValue().containsKey("input.directory")).map(a->a.getValue().get("input.directory")).collect(Collectors.toSet());
+        Path basePath = Paths.get(dirs.iterator().next());
+        List<Path> allReaderFileNames = collectPaths(basePath, null);
+        List<String> fileNames = allReaderFileNames.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
+
+        for (String compoundStep: Arrays.asList(properties.get("run").split(";"))) {
+            messagepipeline.experimental.Node meta = new messagepipeline.experimental.Node("run", false);
+            TestCommand.parse(meta, false, false,false, TestCommand.tokenize(compoundStep).iterator());
+            Layer top = walk(meta, nodeToProperties, fileNames);
+            top.start();
+        }
+
+    }
+
+        @Deprecated
     public void sendReceiveThreeLayers(Map<String,String> producerConfigs, List<Map<String,String>> consumerConfigs, List<Map<String,String>> remoteScriptConfigs) {
 
         final List<Path> readerFileNames = collectPaths(Paths.get(producerConfigs.get("input.directory")), null);

@@ -1,9 +1,9 @@
 package messagepipeline.experimental;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import messagepipeline.pipeline.topology.Layer;
+import messagepipeline.pipeline.topology.LeafLayer;
+
+import java.util.*;
 
 public class Node {
     public final List<Node> children = new ArrayList<>();
@@ -25,7 +25,7 @@ public class Node {
             int max = 0;
             for (Node g: children) {
                 int c =  g.width(1);
-                if (c  >max) max = c;
+                if (c  > max) max = c;
             }
             padd = "";
             for (int i = 0; i < max - 1; i++) {
@@ -60,4 +60,6 @@ public class Node {
         }
         return best+2;
     }
+
+
 }

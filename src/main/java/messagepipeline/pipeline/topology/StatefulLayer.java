@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import messagepipeline.pipeline.node.Node;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
@@ -26,6 +27,15 @@ public class StatefulLayer implements Runnable, Layer {
         this.next = next;
         this.name = name;
         this.fileNames = fileNames;
+    }
+
+    public void start(){
+        List<Thread> threads = new ArrayList<>(nodes.size());
+        threads.add(new Thread((Runnable)nodes,nodes.getClass().getName()));
+        threads.forEach(Thread::start);
+        if(next!=null){
+            next.start();
+        }
     }
 
     public boolean step(String stepName){
