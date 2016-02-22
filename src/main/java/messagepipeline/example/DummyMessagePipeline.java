@@ -23,7 +23,7 @@ public class DummyMessagePipeline extends MessagePipeline {
 
     public static void main(String[] args) {
         DummyMessagePipeline me = new DummyMessagePipeline();
-        String[] files = new String[]{"dummyproperties.txt"};
+        String[] files = new String[]{"classes/main/messagepipeline/example/dummyproperties.txt"};
         me.start2(files);
     }
 }

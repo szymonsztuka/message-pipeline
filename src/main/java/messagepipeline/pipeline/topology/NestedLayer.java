@@ -31,7 +31,9 @@ public class NestedLayer implements Runnable, Layer {
 
     public void start(){
         List<Thread> threads = new ArrayList<>(nodes.size());
-        threads.add(new Thread((Runnable)nodes,nodes.getClass().getName()));
+        for( Node n : nodes){
+            threads.add(new Thread((Runnable)n,n.getClass().getName()));
+        }
         threads.forEach(Thread::start);
         if(next!=null){
             next.start();

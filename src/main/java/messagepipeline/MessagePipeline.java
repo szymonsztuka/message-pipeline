@@ -509,7 +509,7 @@ public abstract class MessagePipeline {
         Map<String, String> rawProperties = mergeProperties(args);
         Map<String, String> variables = getVariables(rawProperties, "path.");
         Map<String, String> properties = replaceVariables(rawProperties, variables, Arrays.asList(new String[]{"dd-MMM-yy", "yyyy-MMM-dd"}));
-        TreeSet<String> nodesToRun = new TreeSet<>(Arrays.asList(properties.get("run").split("->|,|;")));
+        TreeSet<String> nodesToRun = new TreeSet<>(Arrays.asList(properties.get("run").split(",|;|\\(|\\)")));
         Map<String, String> selectedProperties = filterProperties(properties, nodesToRun);
         Map<String, Map<String, String>> nodeToProperties = wrapProperties(selectedProperties);
         Set<String> dirs = nodeToProperties.entrySet().stream().filter(a->a.getValue().containsKey("input.directory")).map(a->a.getValue().get("input.directory")).collect(Collectors.toSet());
@@ -520,7 +520,7 @@ public abstract class MessagePipeline {
         for (String compoundStep: Arrays.asList(properties.get("run").split(";"))) {
             messagepipeline.experimental.Node meta = new messagepipeline.experimental.Node("run", false);
             TestCommand.parse(meta, false, false,false, TestCommand.tokenize(compoundStep).iterator());
-            Layer top = walk(meta, nodeToProperties, fileNames);
+            Layer top = walk(meta.children.get(0), nodeToProperties, fileNames);
             top.start();
         }
 
