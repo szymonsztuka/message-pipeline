@@ -22,8 +22,9 @@ public class JvmProcess implements Runnable, Node {
     final private String classpath;
     final private String mainClass;
     private volatile boolean process = true;
-
-    public JvmProcess(String classpath, String[] jvmArguments, String mainClass, String[] programArguments, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
+    private final String name;
+    public JvmProcess(String name, String classpath, String[] jvmArguments, String mainClass, String[] programArguments, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
+        this.name = name;
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.classpath = classpath;
@@ -122,5 +123,9 @@ public class JvmProcess implements Runnable, Node {
     public void signalBatchEnd() {
         process = false;
         //logger.trace("process set to " + process);
+    }
+
+    public String getName(){
+        return this.name;
     }
 }

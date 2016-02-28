@@ -305,7 +305,9 @@ public abstract class MessagePipeline {
 
             String consumerLayerName = null;
             for (Map.Entry<String, Map<String, String>> node : consumerConfig.entrySet()) {
-                 final PullConsumer consumer = new PullConsumer(getNextAvailablePath(node.getValue().get("output.directory")),
+                 final PullConsumer consumer = new PullConsumer(
+                         node.getKey(),
+                         getNextAvailablePath(node.getValue().get("output.directory")),
                         fileNames,
                         getMessageReceiver(node.getValue().get("input.format")),
                         new InetSocketAddress(node.getValue().get("input.ip"), Integer.parseInt(node.getValue().get("input.port"))),
@@ -344,7 +346,7 @@ public abstract class MessagePipeline {
                 producersThreads.add(new Thread(producer,node.getKey()));
                 if (producerLayerName == null){ producerLayerName = node.getKey();} else { producerLayerName = producerLayerName+", "+node.getKey();}
             }
-            final LeafLayer terminalLayer = new LeafLayer(producerLayerName, producerStartBarrier, producerStopBarrier, producers);
+            final LeafLayer terminalLayer = new LeafLayer(producerLayerName, fileNames, producerStartBarrier, producerStopBarrier, producers);
             final NestedLayer topLayer = new NestedLayer(consumerLayerName, fileNames, consumerStartBarrier, consumerStopBarrier, consumers, terminalLayer);
             final Thread controllerThread;
             if (processConfigs.size() > 0) {
@@ -354,7 +356,9 @@ public abstract class MessagePipeline {
                 final CyclicBarrier batchStart = new CyclicBarrier(processConfigs.size() + 1);
                 final CyclicBarrier batchEnd = new CyclicBarrier(processConfigs.size() + 1);
                 for (Map.Entry<String, Map<String, String>> node : processConfigs.entrySet()) {
-                    final JvmProcess process = new JvmProcess(node.getValue().get("classpath"),
+                    final JvmProcess process = new JvmProcess(
+                            node.getKey(),
+                            node.getValue().get("classpath"),
                             node.getValue().get("jvmArguments").split(" "),
                             node.getValue().get("mainClass"),
                             node.getValue().get("programArguments").split(" "),
@@ -403,6 +407,7 @@ public abstract class MessagePipeline {
     }
 
     public LeafLayer createLeafLayer(Map<String, Map<String, String>> command, List<String> names) {
+        logger.info("LeafLayer "+command.keySet());
         CyclicBarrier startBarrier = new CyclicBarrier(command.size() + 1);
         CyclicBarrier stopBarrier = new CyclicBarrier(command.size() + 1);
         List<LeafNode> nodes = new ArrayList<>(command.size());
@@ -442,17 +447,21 @@ public abstract class MessagePipeline {
             } else if ("javaprocess".equals(e.getValue().get("type"))) {
                 //processes.put(e.getKey(), e.getValue());
             } else if ("localscript".equals(e.getValue().get("type"))) {
-                //localScripts.put(e.getKey(), e.getValue());
+                LocalScript ls = new LocalScript(e.getValue().get("script"),startBarrier,
+                        stopBarrier);
+                nodes.add(ls);
             }
         }
-       LeafLayer layer = new LeafLayer("", startBarrier, stopBarrier, nodes);
+       LeafLayer layer = new LeafLayer(command.keySet().toString(), names, startBarrier, stopBarrier, nodes);
         return layer;
     }
 
     public NestedLayer createLayer(Map<String, Map<String, String>> command, List<String> names, Layer next) {
+        logger.info("NestedLayer "+command.keySet()+ " "+ next.getName() );
         CyclicBarrier startBarrier = new CyclicBarrier(command.size() + 1);
         CyclicBarrier stopBarrier = new CyclicBarrier(command.size() + 1);
         List<Node> nodes = new ArrayList<>(command.size());
+        boolean steps = false;
         for(Map.Entry<String,Map<String,String>> e : command.entrySet()) {
             if ("sender".equals(e.getValue().get("type"))
                     && "files".equals(e.getValue().get("input"))
@@ -461,20 +470,25 @@ public abstract class MessagePipeline {
             } else if ("receiver".equals(e.getValue().get("type"))
                     && "tcpclient".equals(e.getValue().get("input"))
                     && "files".equals(e.getValue().get("output"))) {
-                final PullConsumer consumer = new PullConsumer(getNextAvailablePath(e.getValue().get("output.directory")),
+                final PullConsumer consumer = new PullConsumer(
+                        e.getKey(),
+                        getNextAvailablePath(e.getValue().get("output.directory")),
                         names,
                         getMessageReceiver(e.getValue().get("input.format")),
                         new InetSocketAddress(e.getValue().get("input.ip"), Integer.parseInt(e.getValue().get("input.port"))),
                         startBarrier,
                         stopBarrier);
                 nodes.add(consumer);
+                steps = true;
             } else if ("remotescript".equals(e.getValue().get("type"))
                     && e.getValue().containsKey("host")
                     && e.getValue().containsKey("user")
                     && e.getValue().containsKey("password")) {
                 //remoteScripts.put(e.getKey(), e.getValue());
             } else if ("javaprocess".equals(e.getValue().get("type"))) {
-                final JvmProcess process = new JvmProcess(e.getValue().get("classpath"),
+                final JvmProcess process = new JvmProcess(
+                        e.getKey(),
+                        e.getValue().get("classpath"),
                         e.getValue().get("jvmArguments").split(" "),
                         e.getValue().get("mainClass"),
                         e.getValue().get("programArguments").split(" "),
@@ -484,7 +498,14 @@ public abstract class MessagePipeline {
                 //localScripts.put(e.getKey(), e.getValue());
             }
         }
-        NestedLayer layer = new NestedLayer("", names, startBarrier, stopBarrier, nodes, next);
+        List<String> stepNames;
+        if(steps) {
+            stepNames = names;
+        } else{
+            stepNames = new ArrayList<>();
+            stepNames.add("1");
+        }
+        NestedLayer layer = new NestedLayer(command.keySet().toString(), stepNames, startBarrier, stopBarrier, nodes, next);
         return layer;
     }
 
@@ -518,10 +539,18 @@ public abstract class MessagePipeline {
         List<String> fileNames = allReaderFileNames.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
 
         for (String compoundStep: Arrays.asList(properties.get("run").split(";"))) {
+            logger.info("compoundStep "+compoundStep);
             messagepipeline.experimental.Node meta = new messagepipeline.experimental.Node("run", false);
             TestCommand.parse(meta, false, false,false, TestCommand.tokenize(compoundStep).iterator());
             Layer top = walk(meta.children.get(0), nodeToProperties, fileNames);
-            top.start();
+            //top.start();
+            Thread th = new Thread((Runnable)top, top.getName());
+            th.start();
+            try {
+                th.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
 
     }

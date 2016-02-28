@@ -29,12 +29,12 @@ public class StatefulLayer implements Runnable, Layer {
         this.fileNames = fileNames;
     }
 
-    public void start(){
+    public void nodesStart(){
         List<Thread> threads = new ArrayList<>(nodes.size());
         threads.add(new Thread((Runnable)nodes,nodes.getClass().getName()));
         threads.forEach(Thread::start);
         if(next!=null){
-            next.start();
+            next.nodesStart();
         }
     }
 
@@ -73,5 +73,8 @@ public class StatefulLayer implements Runnable, Layer {
             e.printStackTrace();
         }
         logger.info(name + " ...finished");
+    }
+    public String getName(){
+        return name;
     }
 }

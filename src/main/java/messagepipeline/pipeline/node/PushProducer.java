@@ -59,17 +59,16 @@ public class PushProducer implements Runnable, LeafNode {
         List<Thread> realThreads = new ArrayList<>();
         try {
             ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
-            //logger.info("Producer open");
             if (serverSocketChannel.isOpen()) {
                 serverSocketChannel.configureBlocking(true);
                 serverSocketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
                 serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
                 serverSocketChannel.bind(address);
-                logger.info(generators.size() + " connections available on " + address.toString());
+                logger.trace(generators.size() + " connections available on " + address.toString());
                 for (int i = 0; i < generators.size(); i++) {
                     try {
                         SocketChannel socketChannel = serverSocketChannel.accept();
-                        logger.info("source " + inputDir.toString() + ", destination " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
+                        logger.trace("source " + inputDir.toString() + ", destination " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
                         SubProducer subProducer = new SubProducer(socketChannel, paths, generators.get(i), internalBatchStart, internalBatchEnd);
                         threads.add(subProducer);
                         Thread subThread = new Thread(subProducer);
@@ -85,6 +84,7 @@ public class PushProducer implements Runnable, LeafNode {
             }
             while (!allDone(threads)) {
                 try {
+                    logger.trace(batchStart.getParties()+" "+batchStart.getNumberWaiting());
                     batchStart.await();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -106,6 +106,7 @@ public class PushProducer implements Runnable, LeafNode {
                     e.printStackTrace();
                 }
                 try {
+                    logger.trace(batchEnd.getParties()+" "+batchEnd.getNumberWaiting());
                     batchEnd.await();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -179,12 +180,11 @@ public class PushProducer implements Runnable, LeafNode {
                     } catch (BrokenBarrierException e) {
                         e.printStackTrace();
                     }
-
                     try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
-                        //logger.trace("Producer receiving " + path);
                         while ((line = reader.readLine()) != null) {
                             if (line.length() > 0) {
                                 try {
+                                    logger.trace("Producer sends   " + line);
                                     generator.write(line, buffer, sendAtTimestamps);
                                     buffer.flip();
                                     socketChannel.write(buffer);
@@ -219,7 +219,7 @@ public class PushProducer implements Runnable, LeafNode {
                 }
 
             try {
-                logger.info("closing socket");
+                logger.trace("closing socket");
                 socketChannel.close();
             } catch (Exception e) {
                 logger.error("error", e);
@@ -227,5 +227,9 @@ public class PushProducer implements Runnable, LeafNode {
             internalDone = true;
             logger.info("closed");
         }
+    }
+
+    public String getName(){
+        return this.name;
     }
 }

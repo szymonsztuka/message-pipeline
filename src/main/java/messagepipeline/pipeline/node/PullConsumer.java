@@ -35,8 +35,10 @@ public class PullConsumer implements Runnable, Node {
     private final CyclicBarrier batchStart;
     private final CyclicBarrier batchEnd;
     private final Path baseDir;
+    private final String name;
 
-    public PullConsumer(String directory, List<String> messagePaths, MessageReceiver messageReceiver, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
+    public PullConsumer(String name, String directory, List<String> messagePaths, MessageReceiver messageReceiver, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
+        this.name = name;
         this.baseDir = Paths.get(directory);
         this.paths = messagePaths.stream().map(s -> Paths.get(this.baseDir + File.separator + s)).collect(Collectors.toList());
         this.receiver = messageReceiver;
@@ -47,7 +49,7 @@ public class PullConsumer implements Runnable, Node {
 
     public void signalBatchEnd() {
         process = false;
-        //logger.trace("process set to " + process);
+        //logger.info("process set to " + process);
     }
 
     @SuppressWarnings("rawtypes")
@@ -73,11 +75,13 @@ public class PullConsumer implements Runnable, Node {
                                 if (keySocketChannel.isConnectionPending()) {
                                     keySocketChannel.finishConnect();
                                 }
-                                logger.info("Source " + socketChannel.getLocalAddress() + " -> " + socketChannel.getRemoteAddress()
-                                        + ", destination " + baseDir.toString());
+                               // logger.info("Source " + socketChannel.getLocalAddress() + " -> " + socketChannel.getRemoteAddress()
+                               //         + ", destination " + baseDir.toString());
                                 for (Path path : paths) {
                                     logger.trace("connection " + path);
                                     try {
+                                        logger.trace(name + " " + "xxx" + " start "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting());
+
                                         batchStart.await();
                                     } catch (InterruptedException e) {
                                         e.printStackTrace();
@@ -107,6 +111,7 @@ public class PullConsumer implements Runnable, Node {
                                         }
                                     }
                                     try {
+                                        logger.trace(name + " " + "xxx" + " end "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting());
                                         batchEnd.await();
                                         process = true;
                                     } catch (InterruptedException e) {
@@ -128,5 +133,9 @@ public class PullConsumer implements Runnable, Node {
         } catch (IOException ex) {
             logger.error("consumer", ex);
         }
+    }
+
+    public String getName(){
+        return this.name;
     }
 }

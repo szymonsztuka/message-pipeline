@@ -47,6 +47,20 @@ task copyToLib(type: Copy) {
     from configurations.runtime
 }
 
+task execute(type:JavaExec) {
+
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+task passThrougtServer (type: Jar) {
+    baseName = "PassThroughTcpServer"
+    manifest {
+        attributes 'Main-Class': 'messagepipeline.example.PassThroughTcpServer'
+    }
+    from sourceSets.main.output
+    include 'messagepipeline/example/**'
+}
+
 task build(dependsOn: [jar, copyProperties, copyScripts, copyToLib])
 
 

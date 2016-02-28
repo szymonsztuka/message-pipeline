@@ -29,50 +29,51 @@ public class NestedLayer implements Runnable, Layer {
         this.fileNames = names;
     }
 
-    public void start(){
+    public void nodesStart(){
+        logger.trace("nodesStart " + name + ", " +nodes.size() + " nodes");
         List<Thread> threads = new ArrayList<>(nodes.size());
         for( Node n : nodes){
-            threads.add(new Thread((Runnable)n,n.getClass().getName()));
+            threads.add(new Thread((Runnable)n,n.getName()));
         }
         threads.forEach(Thread::start);
         if(next!=null){
-            next.start();
+            next.nodesStart();
         }
     }
 
     public boolean step(String stepName){
-        logger.info(name + " awaiting " + stepName + " ...");
         boolean result =false;
         try {
+            logger.trace(name + " " + stepName + " start "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting());
             batchStart.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
-        logger.debug(name + " ...starting");
         if(next!=null) {
             result = next.step(stepName);
         }
         nodes.forEach(Node::signalBatchEnd);
-        logger.debug(name + " finishing...");
         try {
+            logger.trace(name + " " + stepName + " end "+ batchEnd.getParties() + " "+ batchEnd.getNumberWaiting());
             batchEnd.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
-        logger.info(name + " ...finished");
         return result;
     }
 
     @Override
     public void run() {
+        logger.trace("run");
+        nodesStart();
         boolean run = true;
         long i = 0;
         Iterator<String> nameIterator = fileNames.iterator();
-        while(run) {
+        while(run && nameIterator.hasNext()) {
             String fileName = nameIterator.next();
             run = step(fileName);
             System.out.print(String.format("Running [%2d %%] %30s %20s\r", ((i * 100) / fileNames.size()), fileName, "                  "));
@@ -80,5 +81,9 @@ public class NestedLayer implements Runnable, Layer {
         }
         System.out.print("done");
         logger.info("done");
+    }
+
+    public String getName(){
+        return name;
     }
 }

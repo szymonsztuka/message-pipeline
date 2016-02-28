@@ -1,5 +1,5 @@
-run=p1;p2;p3;(c1,c2,(b1,b2,(a)));m1;m2;n1;n2
-
+#run=p1;p2;p3;(c1,c2,(b1,b2,(a)));m1;m2;n1;n2
+run=p1;p2;p3;(b1,b2,(a));m1;m2;n1;n2
 p1.type=localscript
 p2.type=localscript
 p3.type=localscript
@@ -11,26 +11,26 @@ c2.type=localscript
 b1.type=receiver
 b1.input=tcpclient
 b1.input.ip=127.0.0.1
-b1.input.port=49153
+b1.input.port=5556
 b1.input.format=txt
 b1.output=files
-b1.output.directory=classes/main/messagepipeline/example/y
+b1.output.directory=build/resources/main/example/data/output1
 
 b2.type=receiver
 b2.input=tcpclient
 b2.input.ip=127.0.0.1
-b2.input.port=49152
+b2.input.port=5557
 b2.input.format=txt
 b2.output=files
-b2.output.directory
+b2.output.directory=build/resources/main/example/data/output2
 
 a.type=sender
 a.input=files
-a.input.directory=classes/main/messagepipeline/example/x
+a.input.directory=build/resources/main/example/data/input
 a.output=tcpserver
 a.output.ip=127.0.0.1
-a.output.port=59154
-a.output.clients.number=1
+a.output.port=5555
+a.output.clients.number=2
 a.output.format=txt
 a.output.realtime=no
 
