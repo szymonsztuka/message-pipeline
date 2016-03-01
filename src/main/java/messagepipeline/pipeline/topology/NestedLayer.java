@@ -19,6 +19,7 @@ public class NestedLayer implements Runnable, Layer {
     final private Layer next;
     private final String name;
     private final List<String> fileNames;
+    private List<Thread> threads;
 
     public NestedLayer(String name, List<String> names, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends Node> nodes, Layer next) {
         this.batchStart = batchStart;
@@ -31,7 +32,7 @@ public class NestedLayer implements Runnable, Layer {
 
     public void nodesStart(){
         logger.trace("nodesStart " + name + ", " +nodes.size() + " nodes");
-        List<Thread> threads = new ArrayList<>(nodes.size());
+        threads = new ArrayList<>(nodes.size());
         for( Node n : nodes){
             threads.add(new Thread((Runnable)n,n.getName()));
         }
@@ -80,7 +81,14 @@ public class NestedLayer implements Runnable, Layer {
             i++;
         }
         System.out.print("done");
+        try {
+            for(Thread th: threads)
+                th.join();
+        } catch(InterruptedException e){
+
+        }
         logger.info("done");
+
     }
 
     public String getName(){

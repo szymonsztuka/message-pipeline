@@ -23,7 +23,8 @@ public class JvmProcess implements Runnable, Node {
     final private String mainClass;
     private volatile boolean process = true;
     private final String name;
-    public JvmProcess(String name, String classpath, String[] jvmArguments, String mainClass, String[] programArguments, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
+    private String processLogFile;
+    public JvmProcess(String name, String classpath, String[] jvmArguments, String mainClass, String[] programArguments, String processLogFile, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
         this.name = name;
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
@@ -31,10 +32,15 @@ public class JvmProcess implements Runnable, Node {
         this.jvmArguments = jvmArguments;
         this.programArguments = programArguments;
         this.mainClass = mainClass;
+        this.processLogFile = processLogFile;
     }
 
     public int exec(String classCanonicalName, String classpath, String[] jvmArguments, String[] programArguments, CyclicBarrier batchStart, CyclicBarrier batchEnd) throws IOException,
             InterruptedException {
+        int exitValue = 0;
+        int i=0;
+        while(i < 2) {
+            i++;
 
         String javaHome = System.getProperty("java.home");
         String javaBin = javaHome + File.separator + "bin" + File.separator + "java";
@@ -42,13 +48,14 @@ public class JvmProcess implements Runnable, Node {
         allArguments.add(javaBin);
         allArguments.add("-cp");
         allArguments.add(classpath);
-        if (null != jvmArguments && jvmArguments.length > 0) {
+        if (null != jvmArguments && jvmArguments.length > 0 && !"".equals(jvmArguments[0])) {
             allArguments.addAll(Arrays.asList(jvmArguments));
         }
         allArguments.add(classCanonicalName);
         if (null != programArguments && programArguments.length > 0) {
             allArguments.addAll(Arrays.asList(programArguments));
         }
+        logger.info(allArguments.toString());
         ProcessBuilder builder = new ProcessBuilder(allArguments);
         if (logger.isTraceEnabled()) {
             for (String elem : builder.command()) {
@@ -56,7 +63,7 @@ public class JvmProcess implements Runnable, Node {
             }
         }
         builder.redirectErrorStream(true);
-        File output = new File("logs/process.log");
+        File output = new File(processLogFile+i);//"logs/process.log");
         builder.redirectOutput(output);
         java.lang.Process process = builder.start();
         new Thread(() -> {
@@ -84,22 +91,22 @@ public class JvmProcess implements Runnable, Node {
         }
 
         Thread.sleep(1000);
-        logger.debug("shouting down");
+        logger.debug("shouting down step "+i);
 
         process.destroy();
 
         process.waitFor();
         Thread.sleep(1000);
-        return process.exitValue();
+            exitValue = process.exitValue();
+        }
+        return exitValue;
     }
 
     public void run() {
-        //int i=0;
-        //while(i < turns) {
-        //    i++;
+
             //long startTime = 0;
             try {
-                //logger.debug("start "+ i +"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+               //
                 //startTime = System.nanoTime();
                 int status = exec(mainClass, classpath, jvmArguments, programArguments, batchStart, batchEnd);
                 logger.info("returned status " + status);
@@ -117,7 +124,7 @@ public class JvmProcess implements Runnable, Node {
                 //double seconds = (duration / 1000000000.0);
                 logger.error(ex.getMessage(), ex);
             }
-        //}
+
     }
 
     public void signalBatchEnd() {

@@ -362,6 +362,7 @@ public abstract class MessagePipeline {
                             node.getValue().get("jvmArguments").split(" "),
                             node.getValue().get("mainClass"),
                             node.getValue().get("programArguments").split(" "),
+                            "logs/process.log",
                             batchStart,
                             batchEnd);
                     bootstraps.add(process);
@@ -492,8 +493,10 @@ public abstract class MessagePipeline {
                         e.getValue().get("jvmArguments").split(" "),
                         e.getValue().get("mainClass"),
                         e.getValue().get("programArguments").split(" "),
+                        e.getValue().get("processLogFile"),
                         startBarrier,
                         stopBarrier);
+                nodes.add(process);
             } else if ("localscript".equals(e.getValue().get("type"))) {
                 //localScripts.put(e.getKey(), e.getValue());
             }
@@ -539,7 +542,7 @@ public abstract class MessagePipeline {
         List<String> fileNames = allReaderFileNames.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
 
         for (String compoundStep: Arrays.asList(properties.get("run").split(";"))) {
-            logger.info("compoundStep "+compoundStep);
+            logger.info("---------------compoundStep "+compoundStep);
             messagepipeline.experimental.Node meta = new messagepipeline.experimental.Node("run", false);
             TestCommand.parse(meta, false, false,false, TestCommand.tokenize(compoundStep).iterator());
             Layer top = walk(meta.children.get(0), nodeToProperties, fileNames);

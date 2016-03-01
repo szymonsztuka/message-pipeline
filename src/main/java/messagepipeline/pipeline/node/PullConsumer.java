@@ -73,7 +73,10 @@ public class PullConsumer implements Runnable, Node {
                         try (SocketChannel keySocketChannel = (SocketChannel) key.channel()) {
                             if (key.isConnectable()) {
                                 if (keySocketChannel.isConnectionPending()) {
-                                    keySocketChannel.finishConnect();
+                                    System.out.println(keySocketChannel.getLocalAddress());
+                                    System.out.println(keySocketChannel.getRemoteAddress());
+                                   keySocketChannel.finishConnect();
+
                                 }
                                // logger.info("Source " + socketChannel.getLocalAddress() + " -> " + socketChannel.getRemoteAddress()
                                //         + ", destination " + baseDir.toString());
@@ -123,6 +126,7 @@ public class PullConsumer implements Runnable, Node {
                             }
                         } catch (IOException ex) {
                             logger.error("consumer", ex);
+                            logger.error(ex.getMessage());
                         }
                     }
                 }

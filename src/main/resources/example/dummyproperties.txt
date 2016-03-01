@@ -1,12 +1,22 @@
-#run=p1;p2;p3;(c1,c2,(b1,b2,(a)));m1;m2;n1;n2
-run=p1;p2;p3;(b1,b2,(a));m1;m2;n1;n2
+run=p1;p2;p3;(c1,c2,(b1,b2,(a)));m1;m2;n1;n2
+#run=p1;p2;p3;(b1,b2,(a));m1;m2;n1;n2
 p1.type=localscript
 p2.type=localscript
 p3.type=localscript
 
-c1.type=localscript
+c1.type=javaprocess
+c1.classpath=C:/Users/Takeo/IdeaProjects/server-chain-simulator/build/libs/PassThroughTcpServer-1.0-SNAPSHOT.jar
+c1.jvmArguments=
+c1.mainClass=messagepipeline.example.PassThroughTcpServer
+c1.programArguments=5555 5556
+c1.processLogFile=build/c1.log
 
-c2.type=localscript
+c2.type=javaprocess
+c2.classpath=C:/Users/Takeo/IdeaProjects/server-chain-simulator/build/libs/PassThroughTcpServer-1.0-SNAPSHOT.jar
+c2.jvmArguments=
+c2.mainClass=messagepipeline.example.PassThroughTcpServer
+c2.programArguments=5555 5557
+c2.processLogFile=build/c2.log
 
 b1.type=receiver
 b1.input=tcpclient

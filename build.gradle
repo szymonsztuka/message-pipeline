@@ -50,6 +50,10 @@ task copyToLib(type: Copy) {
 task execute(type:JavaExec) {
 
     classpath = sourceSets.main.runtimeClasspath
+    main = 'messagepipeline.example.DummyMessagePipelineSelfContained'
+
+    // arguments to pass to the application
+    //args 'appArg1'
 }
 
 task passThrougtServer (type: Jar) {

@@ -24,13 +24,14 @@ public class PassThroughTcpServer implements Runnable {
         }
     }
     public static void main(String[] args) {
-        Thread obj1 = new Thread(new  PassThroughTcpServer("", 5555, 5556));
-        Thread obj2 = new Thread(new  PassThroughTcpServer("", 5555, 5557));
+        Thread obj1 = new Thread(new  PassThroughTcpServer("", Integer.parseInt(args[0]), Integer.parseInt(args[1])));
+        //Thread obj2 = new Thread(new  PassThroughTcpServer("", 5555, 5557));
         obj1.start();
-        obj2.start();
+        //obj2.start();
     }
 
     public void run() {
+        System.out.println(this.getClass().toString());
         ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
         while(run) {
            // System.out.println("a");
@@ -44,7 +45,8 @@ public class PassThroughTcpServer implements Runnable {
                     clientChannel.connect(new InetSocketAddress(ip, clientPort));
                     if (clientChannel.isConnected()) { //System.out.println("d");
                         try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) {// System.out.println("e");
-                            if (serverSocketChannel.isOpen()) { //System.out.println("f");
+                            System.out.println("serverSocketChannel.getLocalAddress() "+serverSocketChannel.getLocalAddress());
+                            if (serverSocketChannel.isOpen()) {  System.out.println("serverSocketChannel.getLocalAddress() open "+serverSocketChannel.getLocalAddress());
                                 serverSocketChannel.configureBlocking(true);
                                 serverSocketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
                                 serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
