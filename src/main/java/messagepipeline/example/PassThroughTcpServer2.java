@@ -7,14 +7,14 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
-public class PassThroughTcpServer implements Runnable {
+public class PassThroughTcpServer2 implements Runnable {
 
     final int clientPort;
     final int serverPort;
     String ip;
     public volatile boolean run = true;
 
-    public PassThroughTcpServer(String ip, int clientPort,int serverPort){
+    public PassThroughTcpServer2(String ip, int clientPort, int serverPort){
         this.clientPort = clientPort;
         this.serverPort = serverPort;
         if (ip == null || "".equals(ip)) {
@@ -24,7 +24,7 @@ public class PassThroughTcpServer implements Runnable {
         }
     }
     public static void main(String[] args) {
-        Thread obj1 = new Thread(new  PassThroughTcpServer("", Integer.parseInt(args[0]), Integer.parseInt(args[1])));
+        Thread obj1 = new Thread(new PassThroughTcpServer2("", Integer.parseInt(args[0]), Integer.parseInt(args[1])));
         //Thread obj2 = new Thread(new  PassThroughTcpServer("", 5555, 5557));
         obj1.start();
         //obj2.start();
@@ -33,10 +33,25 @@ public class PassThroughTcpServer implements Runnable {
     public void run() {
         System.out.println(this.getClass().toString());
         ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
-        while(run) {
+        //while(run) {
            // System.out.println("a");
-            try (SocketChannel clientChannel = SocketChannel.open()) { //System.out.println("b");
-                if (clientChannel.isOpen()) { //System.out.println("c");
+
+            try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) {// System.out.println("e");
+                System.out.println("szsz serverSocketChannel.getLocalAddress() "+serverSocketChannel.getLocalAddress());
+                if (serverSocketChannel.isOpen()) {
+                    serverSocketChannel.configureBlocking(true);
+                    serverSocketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
+                    serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+                    serverSocketChannel.bind(new InetSocketAddress(ip, serverPort));
+                    System.out.println("serverSocketChannel.getLocalAddress() open "+serverSocketChannel.getLocalAddress() +" "+run);
+                    //System.out.println("Waiting for connections ...");
+                    //while (run) {
+                        System.out.println("a");
+                        try (SocketChannel serverChannel = serverSocketChannel.accept()) {
+                            System.out.println("b");
+            /////////
+            try (SocketChannel clientChannel = SocketChannel.open()) { System.out.println("c");
+                if (clientChannel.isOpen()) { System.out.println("d");
                     clientChannel.configureBlocking(true);
                     clientChannel.setOption(StandardSocketOptions.SO_RCVBUF, 128 * 1024);
                     clientChannel.setOption(StandardSocketOptions.SO_SNDBUF, 128 * 1024);
@@ -44,17 +59,7 @@ public class PassThroughTcpServer implements Runnable {
                     clientChannel.setOption(StandardSocketOptions.SO_LINGER, 5);
                     clientChannel.connect(new InetSocketAddress(ip, clientPort));
                     if (clientChannel.isConnected()) { //System.out.println("d");
-                        try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) {// System.out.println("e");
-                            System.out.println("serverSocketChannel.getLocalAddress() "+serverSocketChannel.getLocalAddress());
-                            if (serverSocketChannel.isOpen()) {
-                                serverSocketChannel.configureBlocking(true);
-                                serverSocketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
-                                serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-                                serverSocketChannel.bind(new InetSocketAddress(ip, serverPort));
-                                System.out.println("serverSocketChannel.getLocalAddress() open "+serverSocketChannel.getLocalAddress() +" "+run);
-                                //System.out.println("Waiting for connections ...");
-                                while (run) { System.out.println("g");
-                                    try (SocketChannel serverChannel = serverSocketChannel.accept()) { //System.out.println("h");
+                         //System.out.println("h");
                                         System.out.println("Incoming connection from: " + serverChannel.getRemoteAddress());
                                         while (clientChannel.read(buffer) != -1) { //client reads !!!!!!!!!!!
                                             System.out.println("i");
@@ -69,9 +74,7 @@ public class PassThroughTcpServer implements Runnable {
                                         }
                                         System.out.println("z");
                                         run =false;
-                                    } catch (IOException ex) {
-                                        ex.printStackTrace();
-                                    } System.out.println("g2");
+
                                 }
                                 System.out.println("serverSocketChannel.getLocalAddress() end "+serverSocketChannel.getLocalAddress());
                             } else {
@@ -80,7 +83,11 @@ public class PassThroughTcpServer implements Runnable {
                         } catch (IOException ex) {
                             System.err.println(ex);
                         }
-                    }
+                        ///////////////////////
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                        } System.out.println("g2");
+                   // }
                 }
             } catch (IOException ex) {
                 System.err.println(ex);
@@ -90,7 +97,8 @@ public class PassThroughTcpServer implements Runnable {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        }
+       // }
+        System.out.println("bye bye");
     }
 
 

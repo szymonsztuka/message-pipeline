@@ -57,9 +57,9 @@ task execute(type:JavaExec) {
 }
 
 task passThrougtServer (type: Jar) {
-    baseName = "PassThroughTcpServer"
+    baseName = "PassThroughTcpServer2"
     manifest {
-        attributes 'Main-Class': 'messagepipeline.example.PassThroughTcpServer'
+        attributes 'Main-Class': 'messagepipeline.example.PassThroughTcpServer2'
     }
     from sourceSets.main.output
     include 'messagepipeline/example/**'

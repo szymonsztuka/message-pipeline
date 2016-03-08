@@ -5,16 +5,16 @@ p2.type=localscript
 p3.type=localscript
 
 c1.type=javaprocess
-c1.classpath=C:/Users/Takeo/IdeaProjects/server-chain-simulator/build/libs/PassThroughTcpServer-1.0-SNAPSHOT.jar
+c1.classpath=C:/Users/Takeo/IdeaProjects/server-chain-simulator/build/libs/PassThroughTcpServer2-1.0-SNAPSHOT.jar
 c1.jvmArguments=
-c1.mainClass=messagepipeline.example.PassThroughTcpServer
+c1.mainClass=messagepipeline.example.PassThroughTcpServer2
 c1.programArguments=5555 5556
 c1.processLogFile=build/c1.log
 
 c2.type=javaprocess
-c2.classpath=C:/Users/Takeo/IdeaProjects/server-chain-simulator/build/libs/PassThroughTcpServer-1.0-SNAPSHOT.jar
+c2.classpath=C:/Users/Takeo/IdeaProjects/server-chain-simulator/build/libs/PassThroughTcpServer2-1.0-SNAPSHOT.jar
 c2.jvmArguments=
-c2.mainClass=messagepipeline.example.PassThroughTcpServer
+c2.mainClass=messagepipeline.example.PassThroughTcpServer2
 c2.programArguments=5555 5557
 c2.processLogFile=build/c2.log
 
@@ -57,3 +57,32 @@ z.classpath=
 z.jvmArguments=
 z.mainClass=
 z.programArguments=
+
+
+TcpServerToFiles
+TcpClientToFiles
+FilesToTcpServer
+FilesToTcpClient
+
+FilesReceiverViaTcpServer
+FilesReceiverViaTcpClient
+FilesSenderViaTcpServer
+FilesSenderViaTcpClient
+FilesSenderViaUdpServer
+
+q1.type=FilesSenderViaTcpClient
+q1.input=tcpclient
+q1.input.ip=127.0.0.1
+q1.input.port=5556
+q1.dataconcerter=txttotxtt
+q1.output=build/resources/main/example/data/output1
+q1.output.format=txt
+
+w.input=build/resources/main/example/data/input
+w.input.format=txt
+w.output=tcpserver
+w.output.ip=127.0.0.1
+w.output.port=5555
+w.output.clients.number=2
+w.output.format=txt
+w.output.realtime=no

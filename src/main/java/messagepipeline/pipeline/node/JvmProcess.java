@@ -24,7 +24,8 @@ public class JvmProcess implements Runnable, Node {
     private volatile boolean process = true;
     private final String name;
     private String processLogFile;
-    public JvmProcess(String name, String classpath, String[] jvmArguments, String mainClass, String[] programArguments, String processLogFile, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
+    List<String> names;
+    public JvmProcess(String name, String classpath, String[] jvmArguments, String mainClass, String[] programArguments, String processLogFile, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<String> names) {
         this.name = name;
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
@@ -33,14 +34,16 @@ public class JvmProcess implements Runnable, Node {
         this.programArguments = programArguments;
         this.mainClass = mainClass;
         this.processLogFile = processLogFile;
+        this.names = names;
     }
 
-    public int exec(String classCanonicalName, String classpath, String[] jvmArguments, String[] programArguments, CyclicBarrier batchStart, CyclicBarrier batchEnd) throws IOException,
+    public int exec(String classCanonicalName, String classpath, String[] jvmArguments, String[] programArguments, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<String> names) throws IOException,
             InterruptedException {
         int exitValue = 0;
         int i=0;
-        while(i < 2) {
+        while(i < names.size()) {
             i++;
+
 
         String javaHome = System.getProperty("java.home");
         String javaBin = javaHome + File.separator + "bin" + File.separator + "java";
@@ -55,7 +58,7 @@ public class JvmProcess implements Runnable, Node {
         if (null != programArguments && programArguments.length > 0) {
             allArguments.addAll(Arrays.asList(programArguments));
         }
-        logger.info(allArguments.toString());
+       // logger.info(allArguments.toString());
         ProcessBuilder builder = new ProcessBuilder(allArguments);
         if (logger.isTraceEnabled()) {
             for (String elem : builder.command()) {
@@ -75,30 +78,35 @@ public class JvmProcess implements Runnable, Node {
                 }
             }
         }).start();
-        Thread.sleep(1000*20);
-        //logger.debug("batchStart.await()");
-        try {
-            batchStart.await();
-        } catch (BrokenBarrierException e) {
-            e.printStackTrace();
-        }
-        //logger.debug("batchStart.await() -done ");
-        //logger.debug("batchEnd.await()!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        try {
-            batchEnd.await();
-        } catch (BrokenBarrierException e) {
-            e.printStackTrace();
-        }
+            //Thread.sleep(1000*20);
+            //logger.debug("batchStart.await()");
+            try {
+                batchStart.await();    logger.debug("s "+ batchStart.getParties()+" "+batchStart.getNumberWaiting());
 
-        Thread.sleep(1000);
-        logger.debug("shouting down step "+i);
+            } catch (BrokenBarrierException e) {
+                e.printStackTrace();
+            }
+        //logger.debug("batchStart.await() -done ");
+           // logger.debug("batchEnd.await()!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            try {
+                batchEnd.await();  logger.debug("e "+ batchEnd.getParties()+" "+batchEnd.getNumberWaiting());
+            } catch (BrokenBarrierException e) {
+                e.printStackTrace();
+            }
+
+       // Thread.sleep(1000);
+       // logger.debug("shouting down step "+i);
 
         process.destroy();
-
+        //    logger.debug("shouting down step "+i+"  downnnnnnnnnnnnnnnnnn -destroyed  ");
         process.waitFor();
-        Thread.sleep(1000);
+       // Thread.sleep(1000);
             exitValue = process.exitValue();
+        //    logger.debug("shouting down step "+i+"  downnnnnnnnnnnnnnnnnn   ");
+
+           // Thread.sleep(1000);
         }
+
         return exitValue;
     }
 
@@ -108,7 +116,7 @@ public class JvmProcess implements Runnable, Node {
             try {
                //
                 //startTime = System.nanoTime();
-                int status = exec(mainClass, classpath, jvmArguments, programArguments, batchStart, batchEnd);
+                int status = exec(mainClass, classpath, jvmArguments, programArguments, batchStart, batchEnd, names);
                 logger.info("returned status " + status);
                 //long endTime = System.nanoTime();
                 //long duration = endTime - startTime;

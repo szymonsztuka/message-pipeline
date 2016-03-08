@@ -2,9 +2,9 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>ERROR</level>
+           <!-- <level>ERROR</level>
             <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
+            <onMismatch>DENY</onMismatch>-->
         </filter>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
@@ -32,7 +32,7 @@
     </appender>
 
 
-    <root level="trace">
+    <root level="TRACE">
         <appender-ref ref="STDOUT" />
         <appender-ref ref="FILE" />
     </root>

@@ -364,7 +364,7 @@ public abstract class MessagePipeline {
                             node.getValue().get("programArguments").split(" "),
                             "logs/process.log",
                             batchStart,
-                            batchEnd);
+                            batchEnd, fileNames);
                     bootstraps.add(process);
                     bootstrapThreads.add(new Thread(process, node.getKey()));
                     if (processLayerName == null){ processLayerName = node.getKey();} else { processLayerName = processLayerName + ", " + node.getKey();}
@@ -426,7 +426,7 @@ public abstract class MessagePipeline {
                 for (int j = 0; j < clientsNumber; j++) {
                     generators.add(getMessageGenerator(e.getValue().get("output.format")));
                 }
-                PushProducer producer = new PushProducer(
+                PushProducerReconnectable producer = new PushProducerReconnectable(
                         e.getKey(),
                         e.getValue().get("input.directory"),
                         names,
@@ -471,7 +471,7 @@ public abstract class MessagePipeline {
             } else if ("receiver".equals(e.getValue().get("type"))
                     && "tcpclient".equals(e.getValue().get("input"))
                     && "files".equals(e.getValue().get("output"))) {
-                final PullConsumer consumer = new PullConsumer(
+                final PullConsumerReconnectable consumer = new PullConsumerReconnectable(
                         e.getKey(),
                         getNextAvailablePath(e.getValue().get("output.directory")),
                         names,
@@ -495,8 +495,10 @@ public abstract class MessagePipeline {
                         e.getValue().get("programArguments").split(" "),
                         e.getValue().get("processLogFile"),
                         startBarrier,
-                        stopBarrier);
+                        stopBarrier,
+                        names);
                 nodes.add(process);
+                steps = true;
             } else if ("localscript".equals(e.getValue().get("type"))) {
                 //localScripts.put(e.getKey(), e.getValue());
             }
