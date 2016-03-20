@@ -33,7 +33,7 @@ public class PassThroughTcpServer2 implements Runnable {
     public void run() {
         System.out.println(this.getClass().toString());
         ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
-        //while(run) {
+        while(true) {
            // System.out.println("a");
 
             try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) {// System.out.println("e");
@@ -64,7 +64,11 @@ public class PassThroughTcpServer2 implements Runnable {
                                         while (clientChannel.read(buffer) != -1) { //client reads !!!!!!!!!!!
                                             System.out.println("i");
                                             buffer.flip();
+
+
                                             serverChannel.write(buffer);//server writes !!!!!!!!!!!
+                                            //buffer.rewind();
+                                            //System.out.println();
                                             //System.out.println("j");
                                             if (buffer.hasRemaining()) {
                                                 buffer.compact();
@@ -82,6 +86,7 @@ public class PassThroughTcpServer2 implements Runnable {
                             }
                         } catch (IOException ex) {
                             System.err.println(ex);
+                             ex.printStackTrace();
                         }
                         ///////////////////////
                         } catch (IOException ex) {
@@ -97,8 +102,9 @@ public class PassThroughTcpServer2 implements Runnable {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-       // }
-        System.out.println("bye bye");
+            System.out.println("bye bye main loop");
+        }
+       // System.out.println("bye bye");
     }
 
 

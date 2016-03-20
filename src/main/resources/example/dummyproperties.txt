@@ -1,4 +1,5 @@
-run=p1;p2;p3;(c1,c2,(b1,b2,(a)));m1;m2;n1;n2
+run=(c1,c2,(b1,b2,(a)))
+#run=p1;p2;p3;(c1,c2,(b1,b2,(a)));m1;m2;n1;n2
 #run=p1;p2;p3;(b1,b2,(a));m1;m2;n1;n2
 p1.type=localscript
 p2.type=localscript
