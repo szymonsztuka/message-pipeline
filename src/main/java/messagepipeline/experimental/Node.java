@@ -1,13 +1,10 @@
 package messagepipeline.experimental;
 
-import messagepipeline.pipeline.topology.Layer;
-import messagepipeline.pipeline.topology.LeafLayer;
-
 import java.util.*;
 
 public class Node {
     public final List<Node> children = new ArrayList<>();
-    public final Set<String> layer = new TreeSet();
+    public final Set<String> layer = new TreeSet<>();
     public final boolean staetfull;
     public Node(String name, boolean statefull) {
         layer.add(name);
