@@ -18,7 +18,7 @@ public class ClientRunner extends UniversalNode implements Runnable{
     private Client client;
 
     public ClientRunner(String name, String directory, MessageReceiver messageReceiver, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
-        super(name, directory, address, start, end);
+        super(name, directory, start, end);
         this.client = new Client(address, messageReceiver);
     }
 
@@ -61,5 +61,9 @@ public class ClientRunner extends UniversalNode implements Runnable{
             }
         }
         client.close();
+    }
+
+    public String toString(){
+        return "ClientRunner";
     }
 }

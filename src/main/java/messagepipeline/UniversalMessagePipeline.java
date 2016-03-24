@@ -1,6 +1,6 @@
 package messagepipeline;
 
-import messagepipeline.experimental.TestCommand;
+import messagepipeline.experimental.*;
 import messagepipeline.message.MessageGenerator;
 import messagepipeline.message.MessageReceiver;
 import messagepipeline.message.ShellScriptGenerator;
@@ -125,8 +125,8 @@ public abstract class UniversalMessagePipeline {
                                 e -> e.getValue())));
     }
 
-    public UniversalLayer createLayer(Map<String, Map<String, String>> command, List<String> names, UniversalLayer next) {
-        logger.info("NestedLayer "+command.keySet()+ " "+ (next!=null?next.getName():"") );
+    public UniversalLayer createLayer(Map<String, Map<String, String>> command, List<String> names, List<UniversalLayer> next) {
+        logger.info("NestedLayer "+command.keySet()+ " "+ (next!=null&&next.size()>0?next.get(0).getName():"") );
         CyclicBarrier startBarrier = new CyclicBarrier(command.size() + 1);
         CyclicBarrier stopBarrier = new CyclicBarrier(command.size() + 1);
         List<UniversalNode> nodes = new ArrayList<>(command.size());
@@ -150,14 +150,14 @@ public abstract class UniversalMessagePipeline {
                         e.getValue().get("input.directory"),
                         generators,
                         new InetSocketAddress(e.getValue().get("output.ip"), Integer.parseInt(e.getValue().get("output.port"))),
-                        //"true".equals(e.getValue().get("output.realtime")),
                         startBarrier,
                         stopBarrier);
                 nodes.add(producer);
+                steps = true;
             } else if ("receiver".equals(e.getValue().get("type"))
                     && "tcpclient".equals(e.getValue().get("input"))
                     && "files".equals(e.getValue().get("output"))) {
-                final ClientRunner consumer = new ClientRunner(
+                ClientRunner consumer = new ClientRunner(
                         e.getKey(),
                         getNextAvailablePath(e.getValue().get("output.directory")),
                         getMessageReceiver(e.getValue().get("input.format")),
@@ -170,7 +170,17 @@ public abstract class UniversalMessagePipeline {
                     && e.getValue().containsKey("host")
                     && e.getValue().containsKey("user")
                     && e.getValue().containsKey("password")) {
-                //remoteScripts.put(e.getKey(), e.getValue());
+                UniversalRemoteShellScrip rs = new UniversalRemoteShellScrip(
+                        e.getValue().get("output.directory"),
+                        e.getValue().get("user"),
+                        e.getValue().get("host"),
+                        e.getValue().get("password"),
+                        startBarrier,
+                        stopBarrier,
+                        getShellScriptGenerator(e.getValue().get("command"))
+                );
+                nodes.add(rs);
+                steps = true;
             } else if ("javaprocess".equals(e.getValue().get("type"))) {
                 final UniversalJvmProcessRunner process = new UniversalJvmProcessRunner(
                         e.getKey(),
@@ -183,11 +193,10 @@ public abstract class UniversalMessagePipeline {
                         stopBarrier
                         );
                 nodes.add(process);
-                steps = true;
             } else if ("localscript".equals(e.getValue().get("type"))) {
-                LocalScript ls = new LocalScript(e.getValue().get("script"),startBarrier,
+                UniversalLocalScript ls = new UniversalLocalScript(e.getValue().get("script"),startBarrier,
                         stopBarrier);
-//                nodes.add(ls);
+                nodes.add(ls);
             }
         }
         List<String> stepNames;
@@ -203,15 +212,21 @@ public abstract class UniversalMessagePipeline {
 
     public UniversalLayer walk(messagepipeline.experimental.Node n, Map<String, Map<String, String>> allCommands, List<String> names ){
 
-        Map<String, Map<String, String>> leyarCommands =
+        Map<String, Map<String, String>> layerCommands =
             allCommands.entrySet().stream().filter(a->n.layer.contains(a.getKey())).collect(Collectors.toMap(
                     e -> e.getKey(),
                     e -> e.getValue()));
         if(n.children.size()==0) {
-            return createLayer( leyarCommands,  names, null);
+            return createLayer( layerCommands,  names, null);
         } else {
-            UniversalLayer l = walk(n.children.get(0), allCommands, names);
-            return createLayer(leyarCommands, names, l);
+            List<UniversalLayer> uls = new ArrayList<>(1);
+
+            for(messagepipeline.experimental.Node e : n.children) {logger.debug("New layer " + e.children.toString());
+               // messagepipeline.experimental.Node e  = n.children.get(0);
+                UniversalLayer l = walk(e, allCommands, names);
+                uls.add(l);
+            }
+            return createLayer(layerCommands, names, uls);
         }
     }
 
@@ -221,8 +236,11 @@ public abstract class UniversalMessagePipeline {
         Map<String, String> variables = getVariables(rawProperties, "path.");
         Map<String, String> properties = replaceVariables(rawProperties, variables, Arrays.asList(new String[]{"dd-MMM-yy", "yyyy-MMM-dd"}));
         TreeSet<String> nodesToRun = new TreeSet<>(Arrays.asList(properties.get("run").split(",|;|\\(|\\)")));
+        System.out.println("nodesToRun " + nodesToRun.toString());
         Map<String, String> selectedProperties = filterProperties(properties, nodesToRun);
+        System.out.println("selectedProperties " + selectedProperties.toString());
         Map<String, Map<String, String>> nodeToProperties = wrapProperties(selectedProperties);
+        System.out.println("nodeToProperties " + nodeToProperties.toString());
         Set<String> dirs = nodeToProperties.entrySet().stream().filter(a->a.getValue().containsKey("input.directory")).map(a->a.getValue().get("input.directory")).collect(Collectors.toSet());
         Path basePath = Paths.get(dirs.iterator().next());
         List<Path> allReaderFileNames = collectPaths(basePath, null);

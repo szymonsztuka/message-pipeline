@@ -11,7 +11,8 @@ import java.util.concurrent.CyclicBarrier;
 
 public abstract class UniversalNode {
 
-    public final InetSocketAddress address;
+    private static final Logger logger = LoggerFactory.getLogger(UniversalNode.class);
+
     protected final CyclicBarrier batchStart;
     protected final CyclicBarrier batchEnd;
     protected final Path baseDir;
@@ -19,17 +20,16 @@ public abstract class UniversalNode {
     public volatile Path path;
     protected volatile boolean process = true;
 
-    public UniversalNode(String name, String directory, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
+    public UniversalNode(String name, String directory, CyclicBarrier start, CyclicBarrier end) {
         this.name = name;
         this.baseDir = Paths.get(directory);
-        this.address = address;
         this.batchStart = start;
         this.batchEnd = end;
         this.process = true;
     }
 
     public abstract void signalStepEnd();
-    private static final Logger logger = LoggerFactory.getLogger(UniversalNode.class);
+
     public void finish() {
         process = false;
         logger.debug("finish");
@@ -45,5 +45,9 @@ public abstract class UniversalNode {
         } else {
             path = null;
         }
+    }
+
+    public String toString(){
+        return "Node";
     }
 }

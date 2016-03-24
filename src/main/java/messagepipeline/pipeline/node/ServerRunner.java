@@ -19,7 +19,7 @@ public class ServerRunner extends UniversalNode implements Runnable {
     private Server server;
 
     public ServerRunner(String name, String directory, List<MessageGenerator> messageGenerators, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
-        super(name, directory, address, start, end);
+        super(name, directory, start, end);
         this.server = new Server(messageGenerators, address ,false);
     }
 
@@ -29,10 +29,13 @@ public class ServerRunner extends UniversalNode implements Runnable {
     }
 
     public void run () {
+        logger.debug("connecting " + process);
         server.connect();
+        logger.debug("connected " + process);
         while(process) {
-            try {logger.debug(name + " s " + batchStart.getParties() + " " + batchStart.getNumberWaiting());
+            try {logger.debug(name + " x  s " + batchStart.getParties() + " " + batchStart.getNumberWaiting());
                 batchStart.await();
+                logger.debug(name + " x s -passed" + batchStart.getParties() + " " + batchStart.getNumberWaiting());
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 logger.error(e.getMessage(), e);
@@ -65,5 +68,9 @@ public class ServerRunner extends UniversalNode implements Runnable {
             }
         }
         server.close();
+    }
+
+    public String toString(){
+        return "ServerRunner";
     }
 }

@@ -188,6 +188,7 @@ public class Server {
                 try {
                     logger.debug("iis " + internalBatchStart.getParties() + " " + internalBatchStart.getNumberWaiting()+ " "+(path!=null?path.toString():null));
                     internalBatchStart.await();
+                    logger.debug("iis-passed " + internalBatchStart.getParties() + " " + internalBatchStart.getNumberWaiting()+ " "+(path!=null?path.toString():null));
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                     logger.error( e.getMessage(), e);

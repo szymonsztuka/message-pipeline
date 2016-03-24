@@ -16,12 +16,12 @@ public class UniversalLayer implements Runnable {
     private final CyclicBarrier batchStart;
     private final CyclicBarrier batchEnd;
     private final List<? extends UniversalNode> nodes;
-    final private UniversalLayer next;
+    final private List<UniversalLayer> next;
     private final String name;
     private final List<String> fileNames;
     private List<Thread> threads;
 
-    public UniversalLayer(String name, List<String> names, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends UniversalNode> nodes, UniversalLayer next) {
+    public UniversalLayer(String name, List<String> names, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<? extends UniversalNode> nodes, List<UniversalLayer> next) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.nodes = nodes;
@@ -31,29 +31,28 @@ public class UniversalLayer implements Runnable {
     }
 
     public void nodesStart(){
-        logger.trace("nodesStart " + name + ", " + nodes.size() + " nodes");
         threads = new ArrayList<>(nodes.size());
         nodes.stream().forEach(e -> threads.add(new Thread((Runnable)e, e.getName())));
         threads.forEach(Thread::start);
         if (next != null){
-            next.nodesStart();
+            next.stream().forEach(UniversalLayer::nodesStart);
         }
     }
 
     public void step(String stepName, boolean last){
         try {
-            Thread.sleep(3000);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         nodes.forEach(e -> e.addStep(stepName));
-        try { logger.debug(name + " " + stepName + " start "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting());
+        try { logger.debug(name + " " + stepName + " start "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting() + " for " +nodes.toString());
             batchStart.await();
         } catch (InterruptedException | BrokenBarrierException e) {
             e.printStackTrace();
         }
         if (next != null) {
-            next.step(stepName, last);
+            next.stream().forEach(e -> e.step(stepName, last));
         }
         nodes.forEach(UniversalNode::signalStepEnd);
         if(last) {
@@ -64,7 +63,7 @@ public class UniversalLayer implements Runnable {
             e.printStackTrace();
         }
         try {
-            Thread.sleep(3000);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -73,8 +72,7 @@ public class UniversalLayer implements Runnable {
     @Override
     public void run() {
         nodesStart();
-        //fileNames.stream().forEach(this::step);
-        //nodes.forEach(UniversalNode::finish);
+        logger.debug("nb steps to run:" + fileNames.size());
         Iterator<String> it = fileNames.iterator();
         while(it.hasNext()) {
             String elem = it.next();
@@ -91,5 +89,14 @@ public class UniversalLayer implements Runnable {
 
     public String getName(){
         return name;
+    }
+
+    public String toString() {
+        String res = "{"+nodes.toString()+"}";
+        if(next!=null)
+        for(UniversalLayer e : next ) {
+            res = res + e.toString();
+        }
+        return res;
     }
 }

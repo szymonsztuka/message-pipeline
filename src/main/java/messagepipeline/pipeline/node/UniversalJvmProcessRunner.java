@@ -25,7 +25,7 @@ public class UniversalJvmProcessRunner extends UniversalNode implements Runnable
     int run = 1;
 
     public UniversalJvmProcessRunner(String name, String classpath, String[] jvmArguments, String mainClass, String[] programArguments, String processLogFile, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
-        super(name,".",null,batchStart, batchEnd);
+        super(name,".",batchStart, batchEnd);
         this.classpath = classpath;
         this.jvmArguments = jvmArguments;
         this.programArguments = programArguments;
