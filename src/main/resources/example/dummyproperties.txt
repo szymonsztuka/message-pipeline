@@ -1,4 +1,4 @@
-run=(c1,c2,(b1,b2,(a)))
+run=(c1,c2,(b1,b2,(a)),d)
 #run=p1;p2;p3;(c1,c2,(b1,b2,(a)));m1;m2;n1;n2
 #run=p1;p2;p3;(b1,b2,(a));m1;m2;n1;n2
 p1.type=localscript
@@ -6,14 +6,14 @@ p2.type=localscript
 p3.type=localscript
 
 c1.type=javaprocess
-c1.classpath=C:/Users/Takeo/IdeaProjects/server-chain-simulator/build/libs/PassThroughTcpServer2-1.0-SNAPSHOT.jar
+c1.classpath=build/libs/PassThroughTcpServer2-1.0-SNAPSHOT.jar
 c1.jvmArguments=
 c1.mainClass=messagepipeline.example.PassThroughTcpServer2
 c1.programArguments=5555 5556
 c1.processLogFile=build/c1.log
 
 c2.type=javaprocess
-c2.classpath=C:/Users/Takeo/IdeaProjects/server-chain-simulator/build/libs/PassThroughTcpServer2-1.0-SNAPSHOT.jar
+c2.classpath=build/libs/PassThroughTcpServer2-1.0-SNAPSHOT.jar
 c2.jvmArguments=
 c2.mainClass=messagepipeline.example.PassThroughTcpServer2
 c2.programArguments=5555 5557
@@ -44,6 +44,13 @@ a.output.port=5555
 a.output.clients.number=2
 a.output.format=txt
 a.output.realtime=no
+
+d.type=javashortprocess
+d.classpath=build/libs/CopyFile-1.0-SNAPSHOT.jar
+d.jvmArguments=
+d.mainClass=messagepipeline.example.CopyFile
+d.programArguments=build/resources/main/example/data/output1 build/resources/main/example/data/copied1
+d.processLogFile=build/d.log
 
 m1.type=localscript
 

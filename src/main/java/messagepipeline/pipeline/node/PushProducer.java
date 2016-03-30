@@ -2,7 +2,7 @@ package messagepipeline.pipeline.node;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.message.MessageGenerator;
+import messagepipeline.message.Encoder;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 public class PushProducer implements Runnable, LeafNode {
 
     private static final Logger logger = LoggerFactory.getLogger(PushProducer.class);
-    private final List<MessageGenerator> generators;
+    private final List<Encoder> generators;
     private volatile boolean done = false;
     private final InetSocketAddress address;
     private final List<Path> paths;
@@ -41,10 +41,10 @@ public class PushProducer implements Runnable, LeafNode {
     final private String name;
     private final Path inputDir;
 
-    public PushProducer(String name, String directory, List<String> messagePaths, List<MessageGenerator> messageGenerators, InetSocketAddress address, boolean sendAtTimestamps, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
+    public PushProducer(String name, String directory, List<String> messagePaths, List<Encoder> encoders, InetSocketAddress address, boolean sendAtTimestamps, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
         this.inputDir = Paths.get(directory);
         this.paths = messagePaths.stream().map(s -> Paths.get(this.inputDir + File.separator + s)).collect(Collectors.toList());
-        this.generators = messageGenerators;
+        this.generators = encoders;
         this.address = address;
         this.sendAtTimestamps = sendAtTimestamps;
         this.batchStart = batchStart;
@@ -68,7 +68,7 @@ public class PushProducer implements Runnable, LeafNode {
                 for (int i = 0; i < generators.size(); i++) {
                     try {
                         SocketChannel socketChannel = serverSocketChannel.accept();
-                        logger.trace("source " + inputDir.toString() + ", destination " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
+                        //logger.debug("source " + inputDir.toString() + ", destination " + socketChannel.getLocalAddress() + " <- " + socketChannel.getRemoteAddress());
                         SubProducer subProducer = new SubProducer(socketChannel, paths, generators.get(i), internalBatchStart, internalBatchEnd);
                         threads.add(subProducer);
                         Thread subThread = new Thread(subProducer);
@@ -84,30 +84,30 @@ public class PushProducer implements Runnable, LeafNode {
             }
             while (!allDone(threads)) {
                 try {
-                    logger.trace(batchStart.getParties()+" "+batchStart.getNumberWaiting());
-                    batchStart.await();
+
+                    batchStart.await(); logger.debug("s "+batchStart.getParties()+" "+batchStart.getNumberWaiting());
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {
                     e.printStackTrace();
                 }
                 try {
-                    internalBatchStart.await();
+                    internalBatchStart.await();logger.debug("si "+internalBatchStart.getParties()+" "+internalBatchStart.getNumberWaiting());
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {
                     e.printStackTrace();
                 }
                 try {
-                    internalBatchEnd.await();
+                    internalBatchEnd.await();logger.debug("ei "+internalBatchEnd.getParties()+" "+internalBatchEnd.getNumberWaiting());
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {
                     e.printStackTrace();
                 }
                 try {
-                    logger.trace(batchEnd.getParties()+" "+batchEnd.getNumberWaiting());
-                    batchEnd.await();
+
+                    batchEnd.await();logger.debug("e "+batchEnd.getParties()+" "+batchEnd.getNumberWaiting());
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {
@@ -147,15 +147,15 @@ public class PushProducer implements Runnable, LeafNode {
     class SubProducer implements Runnable {
         private final SocketChannel socketChannel;
         private final List<Path> paths;
-        final private MessageGenerator generator;
+        final private Encoder generator;
         final private CyclicBarrier internalBatchStart;
         final private CyclicBarrier internalBatchEnd;
         volatile boolean internalDone = false;
 
-        public SubProducer(SocketChannel socketChannel, List<Path> readerPaths, MessageGenerator messageGenerator,
+        public SubProducer(SocketChannel socketChannel, List<Path> readerPaths, Encoder encoder,
                            CyclicBarrier internalBatchStart, CyclicBarrier internalBatchEnd) {
             this.paths = readerPaths;
-            this.generator = messageGenerator;
+            this.generator = encoder;
             this.socketChannel = socketChannel;
             this.internalBatchStart = internalBatchStart;
             this.internalBatchEnd = internalBatchEnd;
@@ -174,7 +174,7 @@ public class PushProducer implements Runnable, LeafNode {
                         e.printStackTrace();
                     }
                     try {
-                        internalBatchStart.await();
+                        internalBatchStart.await(); logger.debug("si "+ internalBatchStart.getParties()+" "+internalBatchStart.getNumberWaiting());
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     } catch (BrokenBarrierException e) {
@@ -185,7 +185,7 @@ public class PushProducer implements Runnable, LeafNode {
                             if (line.length() > 0) {
                                 try {
                                     logger.trace("Producer sends   " + line);
-                                    generator.write(line, buffer, sendAtTimestamps);
+                                    generator.write(line, buffer);
                                     buffer.flip();
                                     socketChannel.write(buffer);
                                     if (buffer.remaining() > 0) {
@@ -198,7 +198,7 @@ public class PushProducer implements Runnable, LeafNode {
                             }
                         }
                     } catch (IOException ex) {
-                        logger.error("cannot read data ", ex);
+                        logger.error("cannot write data ", ex);
                     }
                     try {
                         Thread.sleep(1000 * 5);
@@ -209,13 +209,13 @@ public class PushProducer implements Runnable, LeafNode {
                         if(!pathIt.hasNext()) {
                             internalDone = true;
                         }
-                        internalBatchEnd.await();
+                        internalBatchEnd.await();                        logger.debug("ie "+ internalBatchEnd.getParties()+" "+internalBatchEnd.getNumberWaiting());
+
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     } catch (BrokenBarrierException e) {
                         e.printStackTrace();
                     }
-                    generator.resetSequencNumber();
                 }
 
             try {

@@ -1,6 +1,6 @@
 package messagepipeline.pipeline.node;
 
-import messagepipeline.message.MessageGenerator;
+import messagepipeline.message.Encoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,11 +28,10 @@ import java.util.stream.Collectors;
 public class PushProducerReconnectable implements Runnable, LeafNode {
 
     private static final Logger logger = LoggerFactory.getLogger(PushProducerReconnectable.class);
-    private final List<MessageGenerator> generators;
+    private final List<Encoder> generators;
     private volatile boolean done = false;
     private final InetSocketAddress address;
     private final List<Path> paths;
-    private final boolean sendAtTimestamps;
     final private CyclicBarrier batchStart;
     final private CyclicBarrier batchEnd;
 
@@ -41,12 +40,11 @@ public class PushProducerReconnectable implements Runnable, LeafNode {
     final private String name;
     private final Path inputDir;
 
-    public PushProducerReconnectable(String name, String directory, List<String> messagePaths, List<MessageGenerator> messageGenerators, InetSocketAddress address, boolean sendAtTimestamps, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
+    public PushProducerReconnectable(String name, String directory, List<String> messagePaths, List<Encoder> encoders, InetSocketAddress address, CyclicBarrier batchStart, CyclicBarrier batchEnd) {
         this.inputDir = Paths.get(directory);
         this.paths = messagePaths.stream().map(s -> Paths.get(this.inputDir + File.separator + s)).collect(Collectors.toList());
-        this.generators = messageGenerators;
+        this.generators = encoders;
         this.address = address;
-        this.sendAtTimestamps = sendAtTimestamps;
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.internalBatchStart = new CyclicBarrier(this.generators.size() + 1);
@@ -124,8 +122,6 @@ public class PushProducerReconnectable implements Runnable, LeafNode {
             logger.error(e.getMessage(), e);
         }
 
-
-
         }done = true;logger.info("done");
     }
 
@@ -154,16 +150,16 @@ public class PushProducerReconnectable implements Runnable, LeafNode {
     class SubProducer implements Runnable {
         private final SocketChannel socketChannel;
         private final List<Path> paths;
-        final private MessageGenerator generator;
+        final private Encoder generator;
         final private CyclicBarrier internalBatchStart;
         final private CyclicBarrier internalBatchEnd;
         volatile boolean internalDone = false;
         Path path;
 
-        public SubProducer(SocketChannel socketChannel, List<Path> readerPaths, MessageGenerator messageGenerator,
+        public SubProducer(SocketChannel socketChannel, List<Path> readerPaths, Encoder encoder,
                            CyclicBarrier internalBatchStart, CyclicBarrier internalBatchEnd, Path path) {
             this.paths = readerPaths;
-            this.generator = messageGenerator;
+            this.generator = encoder;
             this.socketChannel = socketChannel;
             this.internalBatchStart = internalBatchStart;
             this.internalBatchEnd = internalBatchEnd;
@@ -193,7 +189,7 @@ public class PushProducerReconnectable implements Runnable, LeafNode {
                     if (line.length() > 0) {
                         try {
                             logger.debug("Producer sends   " + line);
-                            generator.write(line, buffer, sendAtTimestamps);
+                            generator.write(line, buffer);
                             buffer.flip();
                             socketChannel.write(buffer);
                             if (buffer.remaining() > 0) {
@@ -223,9 +219,6 @@ public class PushProducerReconnectable implements Runnable, LeafNode {
             } catch (BrokenBarrierException e) {
                 e.printStackTrace();
             }
-            generator.resetSequencNumber();
-
-
             try {
                 logger.trace("closing socket");
                 socketChannel.close();

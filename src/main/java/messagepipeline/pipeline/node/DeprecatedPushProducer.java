@@ -2,7 +2,7 @@ package messagepipeline.pipeline.node;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.message.MessageGenerator;
+import messagepipeline.message.Encoder;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,24 +25,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DeprecatedPushProducer implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(DeprecatedPushProducer.class);
-    final private List<MessageGenerator> generators;
+    final private List<Encoder> generators;
     final private CountDownLatch done;
     final private InetSocketAddress address;
     final private List<Path> paths;
     final private int noClients ;
-    final private boolean sendAtTimestamps;
     final private CyclicBarrier barrier;
     final private List<DeprecatedPullConsumer> otherThread;
 
     AtomicInteger endOfBatch = new AtomicInteger();
 
-    public DeprecatedPushProducer(CountDownLatch latch, List<Path> readerPaths, List<MessageGenerator> messageGenerators, InetSocketAddress address, int noClients, boolean sendAtTimestamps, CyclicBarrier barrier, List<DeprecatedPullConsumer> otherThread) {
+    public DeprecatedPushProducer(CountDownLatch latch, List<Path> readerPaths, List<Encoder> encoders, InetSocketAddress address, int noClients, CyclicBarrier barrier, List<DeprecatedPullConsumer> otherThread) {
         done = latch;
         paths = readerPaths;
-        generators = messageGenerators;
+        generators = encoders;
         this.address = address;
         this.noClients = noClients > 0 ? noClients : 1;
-        this.sendAtTimestamps = sendAtTimestamps;
         this.barrier = barrier;
         this.otherThread = otherThread;
     }
@@ -118,12 +116,12 @@ public class DeprecatedPushProducer implements Runnable {
     class SubProducer implements Runnable {
         private final SocketChannel socketChannel;
         private final List<Path> paths;
-        final private MessageGenerator generator;
+        final private Encoder generator;
     public volatile boolean done = false;
-        public SubProducer(SocketChannel socketChannel,  List<Path> readerPaths, MessageGenerator messageGenerator) {
+        public SubProducer(SocketChannel socketChannel,  List<Path> readerPaths, Encoder encoder) {
             //done = latch;
             this.paths = readerPaths;
-            this.generator = messageGenerator;
+            this.generator = encoder;
             this.socketChannel = socketChannel;
         }
 
@@ -144,7 +142,7 @@ public class DeprecatedPushProducer implements Runnable {
                     while ((line = reader.readLine()) != null) {
                         if (line.length() > 0) {
                             try {
-                                generator.write(line, buffer, sendAtTimestamps);
+                                generator.write(line, buffer);
                                 buffer.flip();
                                 socketChannel.write(buffer);
                                 //if(buffer.remaining() > 0) {
@@ -182,13 +180,11 @@ public class DeprecatedPushProducer implements Runnable {
                 } catch (BrokenBarrierException e) {
                     e.printStackTrace();
                 }
-                generator.resetSequencNumber();
             }
             try {
                 logger.info("SubProducer closing socket");
 				socketChannel.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
             done = true;

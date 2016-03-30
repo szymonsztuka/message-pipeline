@@ -29,7 +29,7 @@ public class LeafLayer implements Layer, Runnable {
     }
 
     public void nodesStart(){
-        logger.trace("nodesStart " + name + ", " +nodes.size() + " nodes");
+        logger.trace("startRunners " + name + ", " +nodes.size() + " nodes");
         List<Thread> threads = new ArrayList<>(nodes.size());
         for( LeafNode n : nodes){
             threads.add(new Thread((Runnable)n,n.getName()));
@@ -39,16 +39,16 @@ public class LeafLayer implements Layer, Runnable {
 
     public boolean step(String stepName){
         logger.trace(name + " awaiting " + stepName + " ..." +batchStart.getParties()+" "+batchStart.getNumberWaiting());
-        try {logger.info(name + " " + stepName + " start "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting());
-            batchStart.await();
+        try {
+            batchStart.await(); logger.info(name + "s " + stepName + " e "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting());
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (BrokenBarrierException e) {
             e.printStackTrace();
         }
         try {
-            logger.trace(name + " " + stepName + " end "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting());
-            batchEnd.await();
+
+            batchEnd.await();logger.info(name + " e " + stepName + " e "+ batchEnd.getParties() + " "+ batchEnd.getNumberWaiting());
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (BrokenBarrierException e) {
@@ -79,18 +79,18 @@ public class LeafLayer implements Layer, Runnable {
     @Override
     public void run() {
         nodesStart();
-        logger.trace("run");
+        //logger.trace("run");
         boolean run = true;
         long i = 0;
         Iterator<String> nameIterator = fileNames.iterator();
-        while(run) {
+        while(run) {  //logger.info("xxxxxxxxxxxxxxxxxxxxxxxxx");
             String fileName = nameIterator.next();
             run = step(fileName);
-            System.out.print(String.format("Running [%2d %%] %30s %20s\r", ((i * 100) / fileNames.size()), fileName, "                  "));
+            //System.out.print(String.format("Running [%2d %%] %30s %20s\r", ((i * 100) / fileNames.size()), fileName, "                  "));
             i++;
         }
-        System.out.print("done");
-        logger.info("done");
+        //System.out.print("whose done");
+        //logger.info("whose done");
     }
     public String getName(){
         return name;

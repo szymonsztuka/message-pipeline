@@ -2,7 +2,6 @@ package messagepipeline.message;
 
 import java.nio.ByteBuffer;
 
-//TODO class name should be message decoder
-public interface MessageReceiver {
+public interface Decoder {
     String read(final ByteBuffer input);
 }

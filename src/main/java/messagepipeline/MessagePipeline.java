@@ -1,13 +1,14 @@
 package messagepipeline;
 
-import messagepipeline.experimental.*;
+import messagepipeline.lang.CommandBuilder;
 import messagepipeline.pipeline.node.Node;
 import messagepipeline.pipeline.topology.Layer;
+import messagepipeline.lang.Command;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.message.MessageGenerator;
-import messagepipeline.message.MessageReceiver;
-import messagepipeline.message.ShellScriptGenerator;
+import messagepipeline.message.Encoder;
+import messagepipeline.message.Decoder;
+import messagepipeline.message.ScriptGenerator;
 import messagepipeline.pipeline.topology.NestedLayer;
 import messagepipeline.pipeline.topology.StatefulLayer;
 import messagepipeline.pipeline.topology.LeafLayer;
@@ -25,18 +26,17 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 public abstract class MessagePipeline {
 
     private static final Logger logger = LoggerFactory.getLogger(MessagePipeline.class);
 
-    protected abstract MessageReceiver getMessageReceiver(String type);
+    protected abstract Decoder getMessageReceiver(String type);
 
-    protected abstract MessageGenerator getMessageGenerator(String type);
+    protected abstract Encoder getMessageGenerator(String type);
 
-    protected abstract ShellScriptGenerator getShellScriptGenerator(String... args);
+    protected abstract ScriptGenerator getShellScriptGenerator(String... args);
 
     public static Map<String,String> mergeProperties(String[] args) {
         Optional<Properties> properties = Arrays.stream(args)
@@ -183,7 +183,7 @@ public abstract class MessagePipeline {
                      String script = localScripts.values().iterator().next().get("script");
                      if(script!=null) {
                          String info = "Running " + script;
-                         logger.info("... to command localscript '" + script + "'");
+                         logger.info("... to lang localscript '" + script + "'");
                          System.out.print( info );
                          final Process process = Runtime.getRuntime().exec(script);
                          // exhaust input stream  http://dhruba.name/2012/10/16/java-pitfall-how-to-prevent-runtime-getruntime-exec-from-hanging/
@@ -205,14 +205,14 @@ public abstract class MessagePipeline {
                     e.printStackTrace();
                 }
             } else if (producers.size() == 1 && consumers.size() == 0 && remoteScripts.size() == 0) {
-                logger.info("... to command send");
+                logger.info("... to lang send");
                 send(producers.entrySet().iterator().next().getValue());
             } else if (producers.size() == 1 && consumers.size() > 0 && remoteScripts.size() == 0) {
-                logger.info("... to command run send receive");
+                logger.info("... to lang run send receive");
                 //final List<Map<String, String>> consumerConfigs = consumers.values().stream().collect(Collectors.toList()); //map to list
                 sendReceiveInterpreter(producers, consumers, processes);
             } else if (producers.size() == 1 && consumers.size() == 2 && remoteScripts.size() == 3) {
-                logger.info("... to command send receive remote scripts");
+                logger.info("... to lang send receive remote scripts");
                 Map<String, String> producerConfigs = producers.entrySet().iterator().next().getValue();
                 Iterator<Map.Entry<String, Map<String, String>>> consumerIterator = consumers.entrySet().iterator();
                 List<Map<String, String>> consumerConfigs = new ArrayList<>(2);
@@ -240,7 +240,7 @@ public abstract class MessagePipeline {
             final Runnable producer;
             final int noOfClients = Integer.parseInt(values.get("output.clients.number"));
             if(noOfClients > 1) {
-                List<MessageGenerator> msgProducers = new ArrayList<>(noOfClients);
+                List<Encoder> msgProducers = new ArrayList<>(noOfClients);
                 for (int i=0; i < noOfClients; i++) {
                     msgProducers.add(getMessageGenerator( values.get("output.format")));
                 }
@@ -248,14 +248,12 @@ public abstract class MessagePipeline {
                         readerIt.next(),
                         msgProducers,
                         new InetSocketAddress(values.get("output.ip"), Integer.parseInt(values.get("output.port"))),
-                        noOfClients,
-                        "true".equals(values.get("output.realtime")));
+                        noOfClients);
             } else {
                 producer = new DeprecatedProducer(done,
                         readerIt.next(),
                         getMessageGenerator( values.get("output.format")),
-                        new InetSocketAddress(values.get("output.ip"), Integer.parseInt(values.get("output.port"))),
-                        "true".equals(values.get("output.realtime")));
+                        new InetSocketAddress(values.get("output.ip"), Integer.parseInt(values.get("output.port"))));
             }
             Thread producerThread = new Thread(producer);
             producerThread.start();
@@ -432,7 +430,6 @@ public abstract class MessagePipeline {
                         names,
                         generators,
                         new InetSocketAddress(e.getValue().get("output.ip"), Integer.parseInt(e.getValue().get("output.port"))),
-                        "true".equals(e.getValue().get("output.realtime")),
                         startBarrier,
                         stopBarrier);
                 nodes.add(producer);
@@ -514,7 +511,7 @@ public abstract class MessagePipeline {
         return layer;
     }
 
-    public Layer walk(messagepipeline.experimental.Node n, Map<String, Map<String, String>> allCommands, List<String> names ){
+    public Layer walk(Command n, Map<String, Map<String, String>> allCommands, List<String> names ){
 
 
 
@@ -545,8 +542,8 @@ public abstract class MessagePipeline {
 
         for (String compoundStep: Arrays.asList(properties.get("run").split(";"))) {
             logger.info("---------------compoundStep "+compoundStep);
-            messagepipeline.experimental.Node meta = new messagepipeline.experimental.Node("run", false);
-            TestCommand.parse(meta, false, false,false, TestCommand.tokenize(compoundStep).iterator());
+            Command meta = new Command("run", false);
+            CommandBuilder.parse(meta, false, false,false, CommandBuilder.tokenize(compoundStep).iterator());
             Layer top = walk(meta.children.get(0), nodeToProperties, fileNames);
             //top.start();
             Thread th = new Thread((Runnable)top, top.getName());
@@ -620,7 +617,7 @@ public abstract class MessagePipeline {
                     elem.get("sudo_pass"),
                     (i ==1 ? thirdLayerFileNames1: ( i==2? thirdLayerFileNames2: thirdLayerFileNames3)),
                     barrier,
-                    getShellScriptGenerator(elem.get("command")));
+                    getShellScriptGenerator(elem.get("lang")));
             thirdLayer.add(thirdLayerNode);
             i++;
         }
@@ -663,7 +660,6 @@ public abstract class MessagePipeline {
                         generators,
                         new InetSocketAddress(producerConfigs.get("output.ip"), Integer.parseInt(producerConfigs.get("output.port"))),
                         clientsNumber,
-                        "true".equals(producerConfigs.get("output.realtime")),
                         barrier,
                         consumers);
 

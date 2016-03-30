@@ -2,7 +2,7 @@ package messagepipeline.pipeline.node;
 
 import com.jcraft.jsch.*;
 import org.slf4j.*;
-import messagepipeline.message.ShellScriptGenerator;
+import messagepipeline.message.ScriptGenerator;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -26,17 +26,17 @@ public class RemoteShellScrip implements Runnable {
   CyclicBarrier barrier;
   List<String> files;
   volatile boolean  go = false;
-  ShellScriptGenerator shellScriptGenerator;
+  ScriptGenerator scriptGenerator;
   LocalTime currentTime;
 
-  public RemoteShellScrip(String user, String host, String password, String sudo_pass, List<String> files, CyclicBarrier barrier, ShellScriptGenerator shellScriptGenerator) {
+  public RemoteShellScrip(String user, String host, String password, String sudo_pass, List<String> files, CyclicBarrier barrier, ScriptGenerator scriptGenerator) {
       this.user=user;
       this.host=host;
       this.password=password;
       this.sudo_pass=sudo_pass;
       this.barrier = barrier;
       this.files = files;
-      this.shellScriptGenerator = shellScriptGenerator;
+      this.scriptGenerator = scriptGenerator;
   }
 
   public void signalBeginOfBatch() {
@@ -57,7 +57,7 @@ public class RemoteShellScrip implements Runnable {
           logger.debug("connected " + user + "@" + host);
           for(String file: files) {
               Channel channel=session.openChannel("exec");
-              String script = shellScriptGenerator.generate(currentTime.format(formatter),file);
+              String script = scriptGenerator.generate(currentTime.format(formatter),file);
               logger.debug(script);
               ((ChannelExec)channel).setCommand(script);
               InputStream in=channel.getInputStream();
@@ -85,9 +85,9 @@ public class RemoteShellScrip implements Runnable {
               }
               channel.disconnect();
               channel = session.openChannel("exec");
-              downloadFile(channel, shellScriptGenerator.generateRemoteFileName(file), file);
+              downloadFile(channel, scriptGenerator.generateRemoteFileName(file), file);
               channel = session.openChannel("exec");
-              removeFile(channel, shellScriptGenerator.generateRemoteFileName(file));
+              removeFile(channel, scriptGenerator.generateRemoteFileName(file));
               go = false;
               logger.trace("done, await");
               barrier.await();
@@ -105,7 +105,7 @@ public class RemoteShellScrip implements Runnable {
     try {
     String command = "scp -f "+remoteSrcFile; ///home/ssztuka/
     ((ChannelExec)channel).setCommand(command);
-    logger.debug("Download file command "+ command);
+    logger.debug("Download file lang "+ command);
     // get I/O streams for remote scp
     OutputStream out = channel.getOutputStream();
     InputStream in = channel.getInputStream();

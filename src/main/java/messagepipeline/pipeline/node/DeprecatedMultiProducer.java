@@ -2,7 +2,7 @@ package messagepipeline.pipeline.node;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.message.MessageGenerator;
+import messagepipeline.message.Encoder;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -23,19 +23,18 @@ import java.util.concurrent.CountDownLatch;
 public class DeprecatedMultiProducer implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(DeprecatedMultiProducer.class);
-    final List<MessageGenerator> generators;
+    final List<Encoder> generators;
     final private CountDownLatch done;
     final private InetSocketAddress address;
     Path path;
     final private int noClients ;
-    final private boolean sendAtTimestamps;
-    public DeprecatedMultiProducer(CountDownLatch latch, Path readerPath, List<MessageGenerator> msgProducers, InetSocketAddress address, int noClients, boolean sendAtTimestamps) {
+
+    public DeprecatedMultiProducer(CountDownLatch latch, Path readerPath, List<Encoder> msgProducers, InetSocketAddress address, int noClients) {
         done = latch;
         path = readerPath;
         generators = msgProducers;
         this.address = address;
         this.noClients = noClients > 0 ? noClients : 1;
-        this.sendAtTimestamps = sendAtTimestamps;
     }
 
     public void run() {
@@ -94,12 +93,12 @@ public class DeprecatedMultiProducer implements Runnable {
     class SubProducer implements Runnable {
         private final SocketChannel socketChannel;
         private final Path path;
-        final private MessageGenerator generator;
+        final private Encoder generator;
         public volatile boolean done = false;
 
-        public SubProducer(SocketChannel socketChannel,  Path readerPath, MessageGenerator messageGenerator) {
+        public SubProducer(SocketChannel socketChannel,  Path readerPath, Encoder encoder) {
             this.path = readerPath;
-            this.generator = messageGenerator;
+            this.generator = encoder;
             this.socketChannel = socketChannel;
         }
 
@@ -112,7 +111,7 @@ public class DeprecatedMultiProducer implements Runnable {
                 while ((line = reader.readLine()) != null) {
                     if(line.length()>0) {
                         try {
-                            generator.write(line, buffer, sendAtTimestamps);
+                            generator.write(line, buffer);
                             buffer.flip();
                             socketChannel.write(buffer);
                             buffer.clear();

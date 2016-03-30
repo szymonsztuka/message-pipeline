@@ -1,10 +1,10 @@
 package messagepipeline.example;
 
-import messagepipeline.message.MessageReceiver;
+import messagepipeline.message.Decoder;
 
 import java.nio.ByteBuffer;
 
-public class DummyMessageReceiver implements MessageReceiver {
+public class DummyDecoder implements Decoder {
     @Override
     public String read(ByteBuffer input) {
         String result = new String();

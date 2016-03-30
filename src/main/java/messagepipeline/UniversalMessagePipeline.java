@@ -1,11 +1,12 @@
 package messagepipeline;
 
-import messagepipeline.experimental.*;
-import messagepipeline.message.MessageGenerator;
-import messagepipeline.message.MessageReceiver;
-import messagepipeline.message.ShellScriptGenerator;
+import messagepipeline.lang.CommandBuilder;
+import messagepipeline.message.Encoder;
+import messagepipeline.message.Decoder;
+import messagepipeline.message.ScriptGenerator;
 import messagepipeline.pipeline.node.*;
 import messagepipeline.pipeline.topology.*;
+import messagepipeline.lang.Command;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,11 +25,11 @@ public abstract class UniversalMessagePipeline {
 
     private static final Logger logger = LoggerFactory.getLogger(UniversalMessagePipeline.class);
 
-    protected abstract MessageReceiver getMessageReceiver(String type);
+    protected abstract Decoder getMessageReceiver(String type);
 
-    protected abstract MessageGenerator getMessageGenerator(String type);
+    protected abstract Encoder getMessageGenerator(String type);
 
-    protected abstract ShellScriptGenerator getShellScriptGenerator(String... args);
+    protected abstract ScriptGenerator getShellScriptGenerator(String... args);
 
     public static Map<String,String> mergeProperties(String[] args) {
         Optional<Properties> properties = Arrays.stream(args)
@@ -177,7 +178,7 @@ public abstract class UniversalMessagePipeline {
                         e.getValue().get("password"),
                         startBarrier,
                         stopBarrier,
-                        getShellScriptGenerator(e.getValue().get("command"))
+                        getShellScriptGenerator(e.getValue().get("lang"))
                 );
                 nodes.add(rs);
                 steps = true;
@@ -191,9 +192,23 @@ public abstract class UniversalMessagePipeline {
                         e.getValue().get("processLogFile"),
                         startBarrier,
                         stopBarrier
-                        );
+                );
                 nodes.add(process);
-            } else if ("localscript".equals(e.getValue().get("type"))) {
+                steps = true;
+            }  else if ("javashortprocess".equals(e.getValue().get("type"))) {
+                    final JavaProcessRunner process = new JavaProcessRunner(
+                            e.getKey(),
+                            e.getValue().get("classpath"),
+                            e.getValue().get("jvmArguments").split(" "),
+                            e.getValue().get("mainClass"),
+                            e.getValue().get("programArguments").split(" "),
+                            e.getValue().get("processLogFile"),
+                            startBarrier,
+                            stopBarrier
+                    );
+                    nodes.add(process);
+                    steps = true;
+                } else if ("localscript".equals(e.getValue().get("type"))) {
                 UniversalLocalScript ls = new UniversalLocalScript(e.getValue().get("script"),startBarrier,
                         stopBarrier);
                 nodes.add(ls);
@@ -210,7 +225,7 @@ public abstract class UniversalMessagePipeline {
         return layer;
     }
 
-    public UniversalLayer walk(messagepipeline.experimental.Node n, Map<String, Map<String, String>> allCommands, List<String> names ){
+    public UniversalLayer walk(Command n, Map<String, Map<String, String>> allCommands, List<String> names ){
 
         Map<String, Map<String, String>> layerCommands =
             allCommands.entrySet().stream().filter(a->n.layer.contains(a.getKey())).collect(Collectors.toMap(
@@ -221,7 +236,7 @@ public abstract class UniversalMessagePipeline {
         } else {
             List<UniversalLayer> uls = new ArrayList<>(1);
 
-            for(messagepipeline.experimental.Node e : n.children) {logger.debug("New layer " + e.children.toString());
+            for(Command e : n.children) {logger.debug("New layer "+ e.toString()+" " + e.children.toString());
                // messagepipeline.experimental.Node e  = n.children.get(0);
                 UniversalLayer l = walk(e, allCommands, names);
                 uls.add(l);
@@ -245,11 +260,12 @@ public abstract class UniversalMessagePipeline {
         Path basePath = Paths.get(dirs.iterator().next());
         List<Path> allReaderFileNames = collectPaths(basePath, null);
         List<String> fileNames = allReaderFileNames.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
+        System.out.println("fileNames " + fileNames.toString());
 
         for (String compoundStep: Arrays.asList(properties.get("run").split(";"))) {
             logger.info("---------------compoundStep "+compoundStep);
-            messagepipeline.experimental.Node meta = new messagepipeline.experimental.Node("run", false);
-            TestCommand.parse(meta, false, false,false, TestCommand.tokenize(compoundStep).iterator());
+            Command meta = new Command("run", false);
+            CommandBuilder.parse(meta, false, false,false, CommandBuilder.tokenize(compoundStep).iterator());
             UniversalLayer top = walk(meta.children.get(0), nodeToProperties, fileNames);
             Thread th = new Thread(top, top.getName());
             th.start();

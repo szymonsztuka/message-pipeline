@@ -1,6 +1,6 @@
 package messagepipeline.pipeline.node;
 
-import messagepipeline.message.MessageGenerator;
+import messagepipeline.message.Encoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,9 +18,9 @@ public class ServerRunner extends UniversalNode implements Runnable {
 
     private Server server;
 
-    public ServerRunner(String name, String directory, List<MessageGenerator> messageGenerators, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
+    public ServerRunner(String name, String directory, List<Encoder> encoders, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
         super(name, directory, start, end);
-        this.server = new Server(messageGenerators, address ,false);
+        this.server = new Server(encoders, address);
     }
 
     @Override

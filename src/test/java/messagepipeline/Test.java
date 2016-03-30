@@ -1,4 +1,4 @@
-package messagepipeline.experimental;
+package messagepipeline;
 
 import java.util.Arrays;
 import java.util.Map;

@@ -2,7 +2,7 @@ package messagepipeline.pipeline.node;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.message.MessageReceiver;
+import messagepipeline.message.Decoder;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -31,17 +31,17 @@ public class PullConsumer implements Runnable, Node {
     public final InetSocketAddress address;
     private volatile boolean process = true;
     private final List<Path> paths;
-    private final MessageReceiver receiver;
+    private final Decoder receiver;
     private final CyclicBarrier batchStart;
     private final CyclicBarrier batchEnd;
     private final Path baseDir;
     private final String name;
 
-    public PullConsumer(String name, String directory, List<String> messagePaths, MessageReceiver messageReceiver, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
+    public PullConsumer(String name, String directory, List<String> messagePaths, Decoder decoder, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
         this.name = name;
         this.baseDir = Paths.get(directory);
         this.paths = messagePaths.stream().map(s -> Paths.get(this.baseDir + File.separator + s)).collect(Collectors.toList());
-        this.receiver = messageReceiver;
+        this.receiver = decoder;
         this.address = address;
         this.batchStart = start;
         this.batchEnd = end;
@@ -52,7 +52,6 @@ public class PullConsumer implements Runnable, Node {
         //logger.info("process set to " + process);
     }
 
-    @SuppressWarnings("rawtypes")
     public void run() {
         ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
         try (Selector selector = Selector.open();
@@ -65,7 +64,7 @@ public class PullConsumer implements Runnable, Node {
                 socketChannel.register(selector, SelectionKey.OP_CONNECT);
                 socketChannel.connect(address);
                 while (selector.select(10000) > 0) {
-                    Set keys = selector.selectedKeys();
+                    Set<SelectionKey> keys = selector.selectedKeys();
                     Iterator its = keys.iterator();
                     while (its.hasNext()) {
                         SelectionKey key = (SelectionKey) its.next();

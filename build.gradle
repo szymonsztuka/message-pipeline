@@ -50,7 +50,7 @@ task copyToLib(type: Copy) {
 task execute(type:JavaExec) {
 
     classpath = sourceSets.main.runtimeClasspath
-    main = 'messagepipeline.example.DummyUniversalMessagePipeline'
+    main = 'messagepipeline.example.DummyBootstrap'
     //main = 'messagepipeline.example.DummyMessagePipelineSelfContained'
     // arguments to pass to the application
     //args 'appArg1'
@@ -60,6 +60,15 @@ task passThrougtServer (type: Jar) {
     baseName = "PassThroughTcpServer2"
     manifest {
         attributes 'Main-Class': 'messagepipeline.example.PassThroughTcpServer2'
+    }
+    from sourceSets.main.output
+    include 'messagepipeline/example/**'
+}
+
+task copyFileJar (type: Jar) {
+    baseName = "CopyFile"
+    manifest {
+        attributes 'Main-Class': 'messagepipeline.example.CopyFile'
     }
     from sourceSets.main.output
     include 'messagepipeline/example/**'

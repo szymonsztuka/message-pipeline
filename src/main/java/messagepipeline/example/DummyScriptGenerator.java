@@ -1,8 +1,8 @@
 package messagepipeline.example;
 
-import messagepipeline.message.ShellScriptGenerator;
+import messagepipeline.message.ScriptGenerator;
 
-public class DummyShellScriptGenerator implements ShellScriptGenerator {
+public class DummyScriptGenerator implements ScriptGenerator {
     @Override
     public String generate(String... args) {
         return "";

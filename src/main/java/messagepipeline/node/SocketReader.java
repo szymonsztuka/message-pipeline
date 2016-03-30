@@ -1,10 +1,11 @@
-package messagepipeline.pipeline.node;
+package messagepipeline.node;
 
 import messagepipeline.message.Decoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -15,34 +16,35 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.Set;
 
-public class Client {
+/**
+ * from socket to file
+ */
+public class SocketReader implements Node {
 
-    private static final Logger logger = LoggerFactory.getLogger(PullConsumer.class);
-    public final InetSocketAddress address;
+    private static final Logger logger = LoggerFactory.getLogger(SocketReader.class);
+
+    private final InetSocketAddress address;
+    private final Path dir;
+    private final Decoder receiver;
+    private final ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
     private volatile boolean process = true;
-    Decoder receiver;
+    private SocketChannel socketChannel;
+    private SocketChannel keySocketChannel;
+    private Selector selector;
 
-    ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
-
-    SocketChannel socketChannel;
-    SocketChannel keySocketChannel ;
-    Selector selector;
-
-    public Client(InetSocketAddress address,  Decoder receiver) {
+    public SocketReader(InetSocketAddress src, Path dst, Decoder receiver) {
         this.receiver = receiver;
-       this.address = address;
+        this.address = src;
+        this.dir = dst;
     }
 
-    public void finishStep() {
-        process = false;
-    }
-
-    public void connect() {
-
+    @Override
+    public void start() {
         try {
             socketChannel = SocketChannel.open();
             selector = Selector.open();
@@ -62,55 +64,73 @@ public class Client {
                         keySocketChannel = (SocketChannel) key.channel();
                         if (key.isConnectable()) {
                             if (keySocketChannel.isConnectionPending()) {
-                                System.out.println(keySocketChannel.getLocalAddress());
-                                System.out.println(keySocketChannel.getRemoteAddress());
+                                //System.out.println(keySocketChannel.getLocalAddress());
+                                //System.out.println(keySocketChannel.getRemoteAddress());
                                 keySocketChannel.finishConnect();
                             }
                         }
                     }
                 }
-            }  } catch (IOException e) {
+            }
+        } catch (IOException e) {
             e.printStackTrace();
-            logger.error( e.getMessage(), e);
-
+            logger.error(e.getMessage(), e);
         }
     }
 
-    public void close(){
-        if(selector != null) {
+    @Override
+    public void signalStepEnd() {
+        process = false;
+    }
+
+    @Override
+    public void end() {
+        if (selector != null) {
             try {
                 selector.close();
             } catch (IOException e) {
                 e.printStackTrace();
-                logger.error( e.getMessage(), e);
+                logger.error(e.getMessage(), e);
             }
         }
-        if(keySocketChannel != null){
-            if(keySocketChannel.isConnected()) {
+        if (keySocketChannel != null) {
+            if (keySocketChannel.isConnected()) {
                 try {
                     keySocketChannel.close();
                 } catch (IOException e) {
                     e.printStackTrace();
-                    logger.error( e.getMessage(), e);
+                    logger.error(e.getMessage(), e);
                 }
             }
         }
-        if(socketChannel != null){
-            if(socketChannel.isConnected()) {
+        if (socketChannel != null) {
+            if (socketChannel.isConnected()) {
                 try {
                     socketChannel.close();
                 } catch (IOException e) {
                     e.printStackTrace();
-                    logger.error( e.getMessage(), e);
+                    logger.error(e.getMessage(), e);
                 }
             }
         }
     }
 
-    public void read(Path path) {
+    /**
+     * Read from socket and write to file
+     */
+    @Override
+    public void step(Path step) {
+        Path path = Paths.get(dir + File.separator + step);
+        if (Files.notExists(path.getParent())) {
+            try {
+                Files.createDirectories(path.getParent());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         process = true;
         try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("UTF-8"), StandardOpenOption.CREATE)) {
-            logger.debug("read started");
+            logger.trace("read started");
             while (keySocketChannel.read(buffer) != -1) {
                 if (buffer.position() > 0) {
                     buffer.flip();
@@ -124,14 +144,13 @@ public class Client {
                         buffer.clear();
                     }
                 } else if (!process) {
-                    logger.debug("read stopped");
+                    logger.trace("read stopped");
                     break;
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
-            logger.error( e.getMessage(), e);
+            logger.error(e.getMessage(), e);
         }
-
     }
 }

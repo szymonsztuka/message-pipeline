@@ -31,8 +31,9 @@ public class NestedLayer implements Runnable, Layer {
     }
 
     public void nodesStart(){
-        logger.trace("nodesStart " + name + ", " +nodes.size() + " nodes");
+        logger.trace("startRunners " + name + ", " +nodes.size() + " nodes");
         threads = new ArrayList<>(nodes.size());
+        //nodes.stream().collect();
         for( Node n : nodes){
             threads.add(new Thread((Runnable)n,n.getName()));
         }
@@ -45,8 +46,8 @@ public class NestedLayer implements Runnable, Layer {
     public boolean step(String stepName){
         boolean result =false;
         try {
-            logger.trace(name + " " + stepName + " start "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting());
             batchStart.await();
+            logger.debug(name + " " + stepName + " start "+ batchStart.getParties() + " "+ batchStart.getNumberWaiting());
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (BrokenBarrierException e) {
@@ -57,8 +58,8 @@ public class NestedLayer implements Runnable, Layer {
         }
         nodes.forEach(Node::signalBatchEnd);
         try {
-            logger.trace(name + " " + stepName + " end "+ batchEnd.getParties() + " "+ batchEnd.getNumberWaiting());
             batchEnd.await();
+            logger.debug(name + " " + stepName + " end "+ batchEnd.getParties() + " "+ batchEnd.getNumberWaiting());
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (BrokenBarrierException e) {
@@ -69,18 +70,19 @@ public class NestedLayer implements Runnable, Layer {
 
     @Override
     public void run() {
-        logger.trace("run");
+        //logger.trace("run");
         nodesStart();
         boolean run = true;
         long i = 0;
         Iterator<String> nameIterator = fileNames.iterator();
         while(run && nameIterator.hasNext()) {
             String fileName = nameIterator.next();
-            run = step(fileName);
-            System.out.print(String.format("Running [%2d %%] %30s %20s\r", ((i * 100) / fileNames.size()), fileName, "                  "));
+            run = true; step(fileName);
+            //System.out.print(String.format("Running [%2d %%] %30s %20s\r", ((i * 100) / fileNames.size()), fileName, "                  "));
             i++;
+            //System.out.println("yyyyyyyyyyyyyyyyyy   " + i +"  " +fileName +" "+fileNames.toString());
         }
-        System.out.print("done");
+       // System.out.println("yyyyyyyyyyyyyyyyyy   done");
         try {
             for(Thread th: threads)
                 th.join();

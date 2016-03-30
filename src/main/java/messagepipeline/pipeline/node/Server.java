@@ -1,12 +1,10 @@
 package messagepipeline.pipeline.node;
 
-import messagepipeline.message.MessageGenerator;
-import messagepipeline.message.MessageReceiver;
+import messagepipeline.message.Encoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -17,46 +15,30 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 
 public class Server {
 
     private static final Logger logger = LoggerFactory.getLogger(Server.class);
-    private final List<MessageGenerator> generators;
-    //private volatile boolean done = false;
+    private final List<Encoder> generators;
     private final InetSocketAddress address;
-
-    private final boolean sendAtTimestamps;
-
 
     final private CyclicBarrier internalBatchStart;
     final private CyclicBarrier internalBatchEnd;
-    //final private String name;
-    //private final Path inputDir;
 
     List<SubProducer> threads = new ArrayList<>();
     List<Thread> realThreads = new ArrayList<>();
     ServerSocketChannel serverSocketChannel = null;
     List<SocketChannel> sockets = new ArrayList<>(1);
-    public Server( List<MessageGenerator> messageGenerators, InetSocketAddress address, boolean sendAtTimestamps) {
-        //this.inputDir = Paths.get(directory);
-        //this.paths = messagePaths.stream().map(s -> Paths.get(this.inputDir + File.separator + s)).collect(Collectors.toList());
-        this.generators = messageGenerators;
+
+    public Server(List<Encoder> encoders, InetSocketAddress address) {
+        this.generators = encoders;
         this.address = address;
-        this.sendAtTimestamps = sendAtTimestamps;
-        //this.batchStart = batchStart;
-       // this.batchEnd = batchEnd;
         this.internalBatchStart = new CyclicBarrier(this.generators.size() + 1);
         this.internalBatchEnd = new CyclicBarrier(this.generators.size() + 1);
-        //this.name = name;
     }
 
     public void connect() {
@@ -160,15 +142,15 @@ public class Server {
 
     class SubProducer implements Runnable {
         private final SocketChannel socketChannel;
-        final private MessageGenerator generator;
+        final private Encoder generator;
         final private CyclicBarrier internalBatchStart;
         final private CyclicBarrier internalBatchEnd;
         volatile boolean run = true;
         volatile Path path;
 
-        public SubProducer(SocketChannel socketChannel, MessageGenerator messageGenerator,
+        public SubProducer(SocketChannel socketChannel, Encoder encoder,
                            CyclicBarrier internalBatchStart, CyclicBarrier internalBatchEnd) {
-            this.generator = messageGenerator;
+            this.generator = encoder;
             this.socketChannel = socketChannel;
             this.internalBatchStart = internalBatchStart;
             this.internalBatchEnd = internalBatchEnd;
@@ -208,7 +190,7 @@ public class Server {
                         if (line.length() > 0) {
                             try {
                                 logger.trace("Producer sends   " + line);
-                                generator.write(line, buffer, sendAtTimestamps);
+                                generator.write(line, buffer);
                                 buffer.flip();
                                 socketChannel.write(buffer);
                                 if (buffer.remaining() > 0) {
@@ -241,10 +223,6 @@ public class Server {
                     e.printStackTrace();
                     logger.error( e.getMessage(), e);
                 }
-                generator.resetSequencNumber();
-
-
-
             }
             logger.info("closed");
         }

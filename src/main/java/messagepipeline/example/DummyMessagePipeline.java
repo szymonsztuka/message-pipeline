@@ -1,24 +1,24 @@
 package messagepipeline.example;
 
 import messagepipeline.MessagePipeline;
-import messagepipeline.message.MessageGenerator;
-import messagepipeline.message.MessageReceiver;
-import messagepipeline.message.ShellScriptGenerator;
+import messagepipeline.message.Encoder;
+import messagepipeline.message.Decoder;
+import messagepipeline.message.ScriptGenerator;
 
 public class DummyMessagePipeline extends MessagePipeline {
     @Override
-    protected MessageReceiver getMessageReceiver(String type) {
-        return new DummyMessageReceiver();
+    protected Decoder getMessageReceiver(String type) {
+        return new DummyDecoder();
     }
 
     @Override
-    protected MessageGenerator getMessageGenerator(String type) {
-        return new DummyMessageGenerator();
+    protected Encoder getMessageGenerator(String type) {
+        return new DummyEncoder();
     }
 
     @Override
-    protected ShellScriptGenerator getShellScriptGenerator(String... args) {
-        return new DummyShellScriptGenerator();
+    protected ScriptGenerator getShellScriptGenerator(String... args) {
+        return new DummyScriptGenerator();
     }
 
     public static void main(String[] args) {

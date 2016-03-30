@@ -72,7 +72,7 @@ public class UniversalLayer implements Runnable {
     @Override
     public void run() {
         nodesStart();
-        logger.debug("nb steps to run:" + fileNames.size());
+        logger.debug("nb dirWithSteps to run:" + fileNames.size());
         Iterator<String> it = fileNames.iterator();
         while(it.hasNext()) {
             String elem = it.next();

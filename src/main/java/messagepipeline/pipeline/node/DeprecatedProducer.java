@@ -15,23 +15,21 @@ import java.util.concurrent.CountDownLatch;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.message.MessageGenerator;
+import messagepipeline.message.Encoder;
 
 public class DeprecatedProducer implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(DeprecatedProducer.class);
-    final private MessageGenerator generator;
+    final private Encoder generator;
     final private CountDownLatch done;
     final private InetSocketAddress address;
-    final private boolean sendAtTimestamps;
     Path path;
 
-    public DeprecatedProducer(CountDownLatch latch, Path readerPath, MessageGenerator messageGenerator, InetSocketAddress address, boolean sendAtTimestamps) {
+    public DeprecatedProducer(CountDownLatch latch, Path readerPath, Encoder encoder, InetSocketAddress address) {
         done = latch;
         path = readerPath;
-        generator = messageGenerator;
+        generator = encoder;
         this.address = address;
-        this.sendAtTimestamps = sendAtTimestamps;
     }
 
     public void run() {
@@ -51,7 +49,7 @@ public class DeprecatedProducer implements Runnable {
                         while ((line = reader.readLine()) != null) {
                             if(line.length()>0) {
                                 try {
-                                    if(generator.write(line, buffer, sendAtTimestamps)) {
+                                    if(generator.write(line, buffer)) {
                                     buffer.flip();
                                     socketChannel.write(buffer);
                                     buffer.clear();

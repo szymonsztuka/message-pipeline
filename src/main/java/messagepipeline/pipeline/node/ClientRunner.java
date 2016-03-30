@@ -1,6 +1,6 @@
 package messagepipeline.pipeline.node;
 
-import messagepipeline.message.MessageReceiver;
+import messagepipeline.message.Decoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,9 +17,9 @@ public class ClientRunner extends UniversalNode implements Runnable{
 
     private Client client;
 
-    public ClientRunner(String name, String directory, MessageReceiver messageReceiver, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
+    public ClientRunner(String name, String directory, Decoder decoder, InetSocketAddress address, CyclicBarrier start, CyclicBarrier end) {
         super(name, directory, start, end);
-        this.client = new Client(address, messageReceiver);
+        this.client = new Client(address, decoder);
     }
 
     @Override

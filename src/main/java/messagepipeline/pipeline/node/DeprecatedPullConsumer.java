@@ -2,7 +2,7 @@ package messagepipeline.pipeline.node;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import messagepipeline.message.MessageReceiver;
+import messagepipeline.message.Decoder;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -28,13 +28,13 @@ public class DeprecatedPullConsumer implements Runnable {
     public final InetSocketAddress address;
     volatile private boolean process = true;
     private final List<Path> paths;
-    private final MessageReceiver receiver;
+    private final Decoder receiver;
     final private CyclicBarrier barrier;
     List<RemoteShellScrip> otherThreads;
 
-    public DeprecatedPullConsumer(List<Path> writerPaths, MessageReceiver messageReceiver, InetSocketAddress adress, CyclicBarrier barrier, List<RemoteShellScrip> otherThreads) {
+    public DeprecatedPullConsumer(List<Path> writerPaths, Decoder decoder, InetSocketAddress adress, CyclicBarrier barrier, List<RemoteShellScrip> otherThreads) {
         paths = writerPaths;
-        receiver = messageReceiver;
+        receiver = decoder;
         this.address = adress;
         this.barrier = barrier;
         this.otherThreads = otherThreads;
