@@ -8,12 +8,12 @@ import messagepipeline.message.CodecFactoryMethod;
 public class DummyCodecFactoryMethod implements CodecFactoryMethod {
     @Override
     public Decoder getMessageDecoder(String type) {
-        return new DummyDecoder();
+        return new TxtDecoder();
     }
 
     @Override
     public Encoder getMessageEncoder(String type) {
-        return new DummyEncoder();
+        return new TxtEncoder();
     }
 
     @Override

@@ -3,8 +3,6 @@ version '1.0-SNAPSHOT'
 apply plugin: 'java'
 apply plugin: 'idea'
 
-sourceCompatibility = 1.8
-
 configurations {
     provided
     provided.extendsFrom(compile)
@@ -12,8 +10,7 @@ configurations {
 
 jar {
     manifest {
-        //attributes 'Main-Class': 'messagepipeline.Coordinator'
-        attributes 'Main-Class': 'messagepipeline.MessagePipeline'
+        attributes 'Main-Class': 'messagepipeline.Bootstrap'
     }
 }
 
@@ -50,10 +47,7 @@ task copyToLib(type: Copy) {
 task execute(type:JavaExec) {
 
     classpath = sourceSets.main.runtimeClasspath
-    main = 'messagepipeline.example.DummyBootstrap'
-    //main = 'messagepipeline.example.DummyMessagePipelineSelfContained'
-    // arguments to pass to the application
-    //args 'appArg1'
+    main = 'messagepipeline.example.TxtBootstrap'
 }
 
 task passThrougtServer (type: Jar) {

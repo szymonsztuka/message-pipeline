@@ -33,7 +33,7 @@ public class PropertiesParser {
         final Map<String, String> properties = loadProperties(args);
         logger.trace("properties: " + properties);
 
-        selectedNodes = Arrays.asList(properties.get("lang.control_flow").split(",|;|\\(|\\)")).stream().filter(e -> e.length() >0).collect(Collectors.toSet());
+        selectedNodes = Arrays.asList(properties.get("command.control_flow").split(",|;|\\(|\\)")).stream().filter(e -> e.length() >0).collect(Collectors.toSet());
         logger.trace("selectedNodes: " + selectedNodes);
 
         final Map<String,String> variables = filterProperties(properties, "env.").entrySet().stream()
@@ -49,13 +49,13 @@ public class PropertiesParser {
         nodeToProperties = wrapProperties(resolvedProperties);
         logger.trace("nodeToProperties: " + nodeToProperties);
 
-        dirWithSteps = nodeToProperties.entrySet().stream().filter(a -> a.getKey().equals(properties.get("lang.step_producer"))
+        dirWithSteps = nodeToProperties.entrySet().stream().filter(a -> a.getKey().equals(properties.get("command.step_producer"))
                 && a.getValue().containsKey("input"))
                 .map(a -> a.getValue().get("input"))
                 .collect(Collectors.toSet()).iterator().next(); //TODO
         logger.trace("dirWithSteps: " + dirWithSteps);
 
-        nodeSequences = Arrays.asList(properties.get("lang.control_flow").split(";"));
+        nodeSequences = Arrays.asList(properties.get("command.control_flow").split(";"));
         logger.trace("nodeSequences: " + nodeSequences);
     }
 

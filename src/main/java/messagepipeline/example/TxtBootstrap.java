@@ -2,7 +2,7 @@ package messagepipeline.example;
 
 import messagepipeline.Bootstarp;
 
-public class DummyBootstrap {
+public class TxtBootstrap {
 
     public static void main(String[] args) {
 

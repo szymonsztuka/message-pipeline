@@ -4,7 +4,7 @@ import messagepipeline.message.Decoder;
 
 import java.nio.ByteBuffer;
 
-public class DummyDecoder implements Decoder {
+public class TxtDecoder implements Decoder {
     @Override
     public String read(ByteBuffer input) {
         String result = new String();
