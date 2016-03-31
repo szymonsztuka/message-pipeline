@@ -22,7 +22,6 @@ public class PropertiesParser {
     public final List<String> inputArguments;
     public final Map<String, Map<String, String>> nodeToProperties;
     public final Set<String> selectedNodes;
-    public final String dirWithSteps;
     public List<String> nodeSequences;
 
     public PropertiesParser(final String[] args) {
@@ -49,12 +48,6 @@ public class PropertiesParser {
         nodeToProperties = wrapProperties(resolvedProperties);
         logger.trace("nodeToProperties: " + nodeToProperties);
 
-        dirWithSteps = nodeToProperties.entrySet().stream().filter(a -> a.getKey().equals(properties.get("command.step_producer"))
-                && a.getValue().containsKey("input"))
-                .map(a -> a.getValue().get("input"))
-                .collect(Collectors.toSet()).iterator().next(); //TODO
-        logger.trace("dirWithSteps: " + dirWithSteps);
-
         nodeSequences = Arrays.asList(properties.get("command.control_flow").split(";"));
         logger.trace("nodeSequences: " + nodeSequences);
     }
@@ -63,8 +56,7 @@ public class PropertiesParser {
         return  "input arguments: " + inputArguments
                 + "\nnodeToProperties: " + nodeToProperties
                 + "\nselectedNodes: " + selectedNodes
-                + "\nnodeSequences: " + nodeSequences
-                + "\ndirWithSteps: " + dirWithSteps;
+                + "\nnodeSequences: " + nodeSequences;
     }
 
     public static Map<String, String> loadProperties(String[] arguments) {
@@ -138,6 +130,12 @@ public class PropertiesParser {
                 .collect(Collectors.groupingBy(e -> e.getKey().substring(0, e.getKey().indexOf(".")),
                         Collectors.toMap(e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
                                 e -> e.getValue())));
+    }
+
+    public static Map<String,String> getParentKeyToChildProperty( Map<String, Map<String, String>> properties, Set<String> parentKeys, String childKey){
+        return properties.entrySet().stream().filter( e -> parentKeys.contains(e.getKey()))
+                .filter( e-> e.getValue().keySet().contains(childKey))
+                .collect(Collectors.toMap(e -> e.getKey(), e ->  e.getValue().get(childKey)));
     }
 
     class VariableResolver implements BiFunction<String, Map<String, String>, String> {

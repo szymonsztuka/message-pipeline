@@ -1,10 +1,9 @@
-env.python=C:/Users/Takeo/AppData/Local/Programs/Python/Python35-32/python.exe
+env.python=python3 #in case of custom python path or runin in DOS create env-properties.txt file with env.python=my path to python.exe
 env.dir=
 env.dd-MMM-yy=today.format('dd-MMM-yy')
 env.yyyy-MMM-dd=today.format('yyyy-MMM-dd')
 
 command.control_flow=e1;(c1,c2,(b1,b2,(a)),d);f1
-command.step_producer=a
 
 a.type=sender
 a.input=build/resources/main/example/data/input

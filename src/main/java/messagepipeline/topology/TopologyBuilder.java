@@ -59,6 +59,7 @@ public class TopologyBuilder {
             }
         }
         if (names.size() == 0) {
+            names = new ArrayList(1);
             names.add("1"); //TODO once off sequence
         }
         Sequence layer = new Sequence(command.keySet().toString(), names, startBarrier, stopBarrier, runners, childSequences);

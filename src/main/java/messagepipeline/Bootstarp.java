@@ -27,24 +27,33 @@ public class Bootstarp {
 
         PropertiesParser propertiesParser = new PropertiesParser(args);
 
-        Path basePath = Paths.get(propertiesParser.dirWithSteps); //TODO move to concrete node, callback from within sequencer
-        List<Path> inputDataPaths = Collections.EMPTY_LIST;
-        if (Files.isDirectory(basePath, LinkOption.NOFOLLOW_LINKS)) {
-            String ignore = null;
-            RecursiveFileCollector walk = new RecursiveFileCollector(ignore);
-            try {
-                Files.walkFileTree(basePath, walk);
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-            inputDataPaths = walk.result;
-        } else {
-            logger.warn("Not found " + basePath );
-        }
-        List<String> fileNames = inputDataPaths.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
+        for (String compoundStep : propertiesParser.nodeSequences) { //TODO move to sequence?
 
-        for (String compoundStep : propertiesParser.nodeSequences) { //TODO move to sequence
-            logger.info("Interpreting " + compoundStep);
+            Set<String> parentKeys = new HashSet<>();//TODO move to PropertiesParser
+            Collections.addAll(parentKeys, compoundStep.split(",|;|\\(|\\)"));
+            Map<String, String> dataStreamPath = PropertiesParser.getParentKeyToChildProperty(propertiesParser.nodeToProperties, parentKeys, "input");
+            logger.info("Interpreting " + compoundStep + " with " + dataStreamPath);
+            List<String> fileNames = Collections.EMPTY_LIST;
+            if (dataStreamPath.size() > 0) {
+                String firstKey = dataStreamPath.keySet().iterator().next();
+                Path basePath = Paths.get(dataStreamPath.get(firstKey));
+                if (Files.isDirectory(basePath, LinkOption.NOFOLLOW_LINKS)) {  //TODO move to CommandBuilder or TopologyBuilder ?
+                    String ignore = null;
+                    RecursiveFileCollector walk = new RecursiveFileCollector(ignore);
+                    try {
+                        Files.walkFileTree(basePath, walk);
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
+                    fileNames = walk.result.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
+                    logger.info("Interpreting " + compoundStep + " with " + fileNames.size() + " steps from " + basePath + " brought by " + firstKey + ".input");
+                } else {
+                    logger.warn("Not found " + basePath);
+                }
+            } else {
+                logger.warn("No dataStreamPath found ");
+            }
+
             CommandBuilder commandBuilder = new CommandBuilder(compoundStep);
             TopologyBuilder topologyBuilder = new TopologyBuilder(commandBuilder.command,
                     propertiesParser.nodeToProperties,
@@ -60,7 +69,7 @@ public class Bootstarp {
         }
     }
 
-   private class RecursiveFileCollector extends SimpleFileVisitor<Path> {
+    private class RecursiveFileCollector extends SimpleFileVisitor<Path> {
         public final List<Path> result = new ArrayList<>();
         private final String ignore;
 
