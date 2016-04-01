@@ -24,9 +24,9 @@ subprojects {
 
 }
 
-project(':radar') {
+//project(':radar') {
 
-}
+//}
 
 project(':radar-samples') {
     //apply plugin: 'application'
