@@ -20,7 +20,8 @@ subprojects {
     targetCompatibility = 1.8
     //}
     //group = 'radar'
-    version '0.2'
+    //version '0.2'
+
 }
 
 project(':radar') {
