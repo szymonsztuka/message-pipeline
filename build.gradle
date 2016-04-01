@@ -14,7 +14,7 @@ subprojects {
         sourceCompatibility = 1.8
         targetCompatibility = 1.8
     }
-    group = 'radar'
+    //group = 'radar'
     version '0.2-SNAPSHOT'
 }
 
