@@ -24,32 +24,32 @@ project(':radar') {
 
 project(':radar-samples') {
     apply plugin: 'application'
-    mainClassName = 'messagepipeline.TxtBootstrap'
+    mainClassName = 'radar.TxtBootstrap'
 
     dependencies {
         compile project(':radar')
     }
     jar {
         manifest {
-            attributes 'Main-Class': 'messagepipeline.TxtBootstrap'
+            attributes 'Main-Class': 'radar.TxtBootstrap'
         }
     }
     task addOn1Jar (type: Jar) {
         baseName = "AddOnPassThroughTcpServer2"
         manifest {
-            attributes 'Main-Class': 'messagepipeline.addons.PassThroughTcpServer2'
+            attributes 'Main-Class': 'radar.addons.PassThroughTcpServer2'
         }
         from sourceSets.main.output
-        include 'messagepipeline/addons/PassThroughTcpServer2.*'
+        include 'radar/addons/PassThroughTcpServer2.*'
     }
 
     task addOn2Jar (type: Jar) {
         baseName = "AddOnCopyFile"
         manifest {
-            attributes 'Main-Class': 'messagepipeline.addons.CopyFile'
+            attributes 'Main-Class': 'radar.addons.CopyFile'
         }
         from sourceSets.main.output
-        include 'messagepipeline/addons/CopyFile.*'
+        include 'radar/addons/CopyFile.*'
     }
 
     artifacts {

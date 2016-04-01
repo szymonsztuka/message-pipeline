@@ -3,6 +3,8 @@
 *.xml
 .name
 .gradle/
+build/
 .jar
 .tar
 .zip
+.log
