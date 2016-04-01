@@ -15,55 +15,43 @@ subprojects {
         compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.1.+'
         compile group: 'com.jcraft', name:'jsch', version:'0.1.+'
     }
-    //compileJava {
+
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
-    //}
-    //group = 'radar'
-    //version '0.2'
-
 }
 
-//project(':radar') {
-
-//}
-/*
 project(':radar-samples') {
-    //apply plugin: 'application'
-    //mainClassName = 'radar.TxtBootstrap'
-
+/*apply plugin: 'application'
+    mainClassName = 'radar.TxtBootstrap'
+    */
     dependencies {
         compile project(':radar')
     }
-    jar {
-        manifest {
-            attributes 'Main-Class': 'radar.TxtBootstrap'
-        }
+/*jar {
+    manifest {
+        attributes 'Main-Class': 'radar.TxtBootstrap'
     }
-    task addOn1Jar (type: Jar) {
-        baseName = "AddOnPassThroughTcpServer2"
-        manifest {
-            attributes 'Main-Class': 'radar.addon.PassThroughTcpServer2'
-        }
-        from sourceSets.main.output
-        include 'radar/addon/PassThroughTcpServer2.*'
-    }
-
-    task addOn2Jar (type: Jar) {
-        baseName = "AddOnCopyFile"
-        manifest {
-            attributes 'Main-Class': 'radar.addon.CopyFile'
-        }
-        from sourceSets.main.output
-        include 'radar/addon/CopyFile.*'
-    }
-
-    artifacts {
-        archives addOn1Jar
-        archives addOn2Jar
-    }
-
 }
-*/
+task addOn1Jar (type: Jar) {
+    baseName = "AddOnPassThroughTcpServer2"
+    manifest {
+        attributes 'Main-Class': 'radar.addon.PassThroughTcpServer2'
+    }
+    from sourceSets.main.output
+    include 'radar/addon/PassThroughTcpServer2.*'
+}
 
+task addOn2Jar (type: Jar) {
+    baseName = "AddOnCopyFile"
+    manifest {
+        attributes 'Main-Class': 'radar.addon.CopyFile'
+    }
+    from sourceSets.main.output
+    include 'radar/addon/CopyFile.*'
+}
 
+artifacts {
+    archives addOn1Jar
+    archives addOn2Jar
+}*/
+}
