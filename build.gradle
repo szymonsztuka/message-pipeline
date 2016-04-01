@@ -27,7 +27,7 @@ subprojects {
 //project(':radar') {
 
 //}
-
+/*
 project(':radar-samples') {
     //apply plugin: 'application'
     //mainClassName = 'radar.TxtBootstrap'
@@ -62,7 +62,8 @@ project(':radar-samples') {
         archives addOn1Jar
         archives addOn2Jar
     }
-}
 
+}
+*/
 
 
