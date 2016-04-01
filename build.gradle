@@ -29,8 +29,8 @@ project(':radar') {
 }
 
 project(':radar-samples') {
-    apply plugin: 'application'
-    mainClassName = 'radar.TxtBootstrap'
+    //apply plugin: 'application'
+    //mainClassName = 'radar.TxtBootstrap'
 
     dependencies {
         compile project(':radar')
