@@ -1,9 +1,4 @@
-package messagepipeline.example;
-
-import messagepipeline.message.Encoder;
-import messagepipeline.message.Decoder;
-import messagepipeline.message.ScriptGenerator;
-import messagepipeline.message.CodecFactoryMethod;
+package messagepipeline.message;
 
 public class DummyCodecFactoryMethod implements CodecFactoryMethod {
     @Override

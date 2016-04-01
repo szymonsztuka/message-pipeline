@@ -1,6 +1,6 @@
 package messagepipeline.lang;
 
-import messagepipeline.Bootstarp;
+import messagepipeline.Bootstrap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +31,7 @@ public class PropertiesParser {
 
         final Map<String, String> properties = loadProperties(args);
         logger.trace("properties: " + properties);
-
+System.out.print("properties: " + properties);
         selectedNodes = Arrays.asList(properties.get("command.control_flow").split(",|;|\\(|\\)")).stream().filter(e -> e.length() >0).collect(Collectors.toSet());
         logger.trace("selectedNodes: " + selectedNodes);
 
@@ -69,7 +69,7 @@ public class PropertiesParser {
                         path = p;
                     } else {
                         try {
-                            Path root = Paths.get(Bootstarp.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+                            Path root = Paths.get(Bootstrap.class.getProtectionDomain().getCodeSource().getLocation().toURI());
                             path = root.getParent().resolveSibling(p);
                         } catch (URISyntaxException e) {
                             System.err.println(e); //TODO log

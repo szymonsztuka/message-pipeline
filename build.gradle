@@ -1,73 +1,62 @@
-version '1.0-SNAPSHOT'
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'idea'
 
-apply plugin: 'java'
-apply plugin: 'idea'
-
-configurations {
-    provided
-    provided.extendsFrom(compile)
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.+'
+        compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.1.+'
+        compile group: 'com.jcraft', name:'jsch', version:'0.1.+'
+    }
+    compileJava {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+    }
+    group = 'radar'
+    version '0.2-SNAPSHOT'
 }
 
-jar {
-    manifest {
-        attributes 'Main-Class': 'messagepipeline.Bootstrap'
+project(':radar') {
+
+}
+
+project(':radar-samples') {
+    apply plugin: 'application'
+    mainClassName = 'messagepipeline.TxtBootstrap'
+
+    dependencies {
+        compile project(':radar')
+    }
+    jar {
+        manifest {
+            attributes 'Main-Class': 'messagepipeline.TxtBootstrap'
+        }
+    }
+    task addOn1Jar (type: Jar) {
+        baseName = "AddOnPassThroughTcpServer2"
+        manifest {
+            attributes 'Main-Class': 'messagepipeline.addons.PassThroughTcpServer2'
+        }
+        from sourceSets.main.output
+        include 'messagepipeline/addons/PassThroughTcpServer2.*'
+    }
+
+    task addOn2Jar (type: Jar) {
+        baseName = "AddOnCopyFile"
+        manifest {
+            attributes 'Main-Class': 'messagepipeline.addons.CopyFile'
+        }
+        from sourceSets.main.output
+        include 'messagepipeline/addons/CopyFile.*'
+    }
+
+    artifacts {
+        archives addOn1Jar
+        archives addOn2Jar
     }
 }
 
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.+'
-    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.1.+'
-    compile group: 'com.jcraft', name:'jsch', version:'0.1.+'
-}
-
-task copyProperties(type: Copy) {
-    from ('src/properties/') {
-        include '**/*.properties'
-    }
-    into 'build'
-}
-
-task copyScripts(type: Copy) {
-    from ('src/properties/') {
-        include '**/*.sh'
-        fileMode 0755
-    }
-    into 'build'
-}
-
-task copyToLib(type: Copy) {
-    into "$buildDir/libs/"
-    from configurations.runtime
-}
-
-task execute(type:JavaExec) {
-
-    classpath = sourceSets.main.runtimeClasspath
-    main = 'messagepipeline.example.TxtBootstrap'
-}
-
-task passThrougtServer (type: Jar) {
-    baseName = "PassThroughTcpServer2"
-    manifest {
-        attributes 'Main-Class': 'messagepipeline.example.PassThroughTcpServer2'
-    }
-    from sourceSets.main.output
-    include 'messagepipeline/example/**'
-}
-
-task copyFileJar (type: Jar) {
-    baseName = "CopyFile"
-    manifest {
-        attributes 'Main-Class': 'messagepipeline.example.CopyFile'
-    }
-    from sourceSets.main.output
-    include 'messagepipeline/example/**'
-}
-
-task build(dependsOn: [jar, copyProperties, copyScripts, copyToLib])
 
 

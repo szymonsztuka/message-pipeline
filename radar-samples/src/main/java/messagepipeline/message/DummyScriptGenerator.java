@@ -1,4 +1,4 @@
-package messagepipeline.example;
+package messagepipeline.message;
 
 import messagepipeline.message.ScriptGenerator;
 

@@ -1,0 +1,8 @@
+*.class
+*.iml
+*.xml
+.name
+.gradle/
+.jar
+.tar
+.zip

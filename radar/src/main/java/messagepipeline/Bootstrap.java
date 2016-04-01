@@ -13,13 +13,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class Bootstarp {
+public class Bootstrap {
 
-    private static final Logger logger = LoggerFactory.getLogger(Bootstarp.class);
+    private static final Logger logger = LoggerFactory.getLogger(Bootstrap.class);
 
     private final CodecFactoryMethod codecFactoryMethod;
 
-    public Bootstarp(CodecFactoryMethod codecFactoryMethod) {
+    public Bootstrap(CodecFactoryMethod codecFactoryMethod) {
         this.codecFactoryMethod = codecFactoryMethod;
     }
 

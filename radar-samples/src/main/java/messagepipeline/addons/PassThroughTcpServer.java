@@ -1,4 +1,4 @@
-package messagepipeline.example;
+package messagepipeline.addons;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

@@ -42,11 +42,12 @@ public class JvmUtil {
         if (null != programArguments && programArguments.length > 0) {
             allArguments.addAll(Arrays.asList(programArguments));
         }
-        logger.trace(allArguments.toString());
+        logger.debug(allArguments.toString());
         ProcessBuilder builder = new ProcessBuilder(allArguments);
         if (logger.isTraceEnabled()) {
             builder.command().stream().forEach(logger::trace);
         }
+        logger.debug("JVM process dir "  +builder.directory());
         builder.redirectErrorStream(true);
         File output = new File(processLogFile);
         builder.redirectOutput(output);
