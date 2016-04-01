@@ -1,7 +1,7 @@
 package radar;
 
-import radar.lang.CommandBuilder;
-import radar.lang.PropertiesParser;
+import radar.conf.CommandBuilder;
+import radar.conf.PropertiesParser;
 import radar.message.CodecFactoryMethod;
 import radar.topology.TopologyBuilder;
 import org.slf4j.Logger;

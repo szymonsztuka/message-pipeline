@@ -37,19 +37,19 @@ project(':radar-samples') {
     task addOn1Jar (type: Jar) {
         baseName = "AddOnPassThroughTcpServer2"
         manifest {
-            attributes 'Main-Class': 'radar.addons.PassThroughTcpServer2'
+            attributes 'Main-Class': 'radar.addon.PassThroughTcpServer2'
         }
         from sourceSets.main.output
-        include 'radar/addons/PassThroughTcpServer2.*'
+        include 'radar/addon/PassThroughTcpServer2.*'
     }
 
     task addOn2Jar (type: Jar) {
         baseName = "AddOnCopyFile"
         manifest {
-            attributes 'Main-Class': 'radar.addons.CopyFile'
+            attributes 'Main-Class': 'radar.addon.CopyFile'
         }
         from sourceSets.main.output
-        include 'radar/addons/CopyFile.*'
+        include 'radar/addon/CopyFile.*'
     }
 
     artifacts {

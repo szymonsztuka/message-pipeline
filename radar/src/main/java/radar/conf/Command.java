@@ -1,4 +1,4 @@
-package radar.lang;
+package radar.conf;
 
 import java.util.ArrayList;
 import java.util.List;

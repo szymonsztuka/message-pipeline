@@ -1,6 +1,6 @@
 package radar.topology;
 
-import radar.lang.Command;
+import radar.conf.Command;
 import radar.message.CodecFactoryMethod;
 import radar.node.*;
 import org.slf4j.Logger;
@@ -22,7 +22,7 @@ public class TopologyBuilder {
     public final Sequence sequence;
 
     public TopologyBuilder(Command command, Map<String, Map<String, String>> nodeToProperties, List<String> fileNames, CodecFactoryMethod codecFactoryMethod) {
-        sequence = parseSteps(command.children.get(0), nodeToProperties, fileNames, codecFactoryMethod);//TODO commandBuilder.lang.children.get(0)
+        sequence = parseSteps(command.children.get(0), nodeToProperties, fileNames, codecFactoryMethod);//TODO commandBuilder.conf.children.get(0)
     }
     public static Sequence parseSteps(Command command, Map<String, Map<String, String>> allCommands, List<String> names, CodecFactoryMethod codecFactoryMethod) {
 

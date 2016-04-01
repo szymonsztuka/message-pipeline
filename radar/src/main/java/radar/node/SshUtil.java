@@ -70,7 +70,7 @@ public class SshUtil {
         try {
             String command = "scp -f " + remoteSrcFile;
             ((ChannelExec) channel).setCommand(command);
-            logger.trace("Download file lang " + command);
+            logger.trace("Download file conf " + command);
             OutputStream out = channel.getOutputStream(); // get I/O streams for remote scp
             InputStream in = channel.getInputStream();
             channel.connect();

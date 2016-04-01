@@ -1,6 +1,6 @@
 package radar;
 
-import radar.lang.PropertiesParser;
+import radar.conf.PropertiesParser;
 
 import java.util.*;
 import java.util.stream.Collectors;

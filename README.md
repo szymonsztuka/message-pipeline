@@ -1,0 +1,1 @@
+application plugin depends on build in order to generate add on jars

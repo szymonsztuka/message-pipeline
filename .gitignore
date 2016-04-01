@@ -1,9 +1,10 @@
+.gradle/
+.idea/
+build/
 *.class
 *.iml
 *.xml
 .name
-.gradle/
-build/
 .jar
 .tar
 .zip

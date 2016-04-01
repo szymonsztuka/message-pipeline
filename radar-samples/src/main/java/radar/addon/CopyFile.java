@@ -1,4 +1,4 @@
-package radar.addons;
+package radar.addon;
 
 import java.io.IOException;
 import java.nio.file.*;

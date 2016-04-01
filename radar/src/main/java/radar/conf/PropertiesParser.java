@@ -1,4 +1,4 @@
-package radar.lang;
+package radar.conf;
 
 import radar.Bootstrap;
 import org.slf4j.Logger;
