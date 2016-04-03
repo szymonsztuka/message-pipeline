@@ -23,7 +23,7 @@ public class PropertiesParser {
     public final Map<String, Map<String, String>> nodeToProperties;
     public final Set<String> selectedNodes;
     public List<String> nodeSequences;
-
+    public String rawCommand;
     public PropertiesParser(final String[] args) {
 
         inputArguments = Arrays.asList(args);
@@ -34,7 +34,7 @@ public class PropertiesParser {
 
         selectedNodes = Arrays.asList(properties.get("command").split(",|;|\\(|\\)|\\{|}")).stream().filter(e -> e.length() > 0).collect(Collectors.toSet());
         logger.trace("selectedNodes: " + selectedNodes);
-
+        rawCommand = properties.get("command");
         final Map<String, String> variables = filterProperties(properties, "env.").entrySet().stream()
                 .collect(Collectors.toMap(e -> e.getKey().substring("env.".length()), e -> e.getValue()));
         logger.trace("variables: " + variables);

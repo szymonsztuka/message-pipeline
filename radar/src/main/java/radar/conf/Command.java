@@ -14,6 +14,14 @@ public class Command {
         layer.add(name);
     }
 
+    public Set<String> getAllNames(){
+        Set<String> result = new TreeSet<>();
+        for(Command child: children) {
+            result.addAll(child.getAllNames());
+        }
+        result.addAll(layer);
+        return result;
+    }
     public String toString() {
         return toString("", "");
     }

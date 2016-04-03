@@ -1,14 +1,18 @@
 package radar.topology;
 
-import radar.conf.Command;
-import radar.message.CodecFactoryMethod;
-import radar.node.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import radar.conf.Command;
+import radar.conf.PropertiesParser;
+import radar.message.CodecFactoryMethod;
+import radar.node.*;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.file.Paths;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
@@ -18,22 +22,46 @@ public class TopologyBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(TopologyBuilder.class);
 
-    public final Sequence sequence;
+    public final List<Sequence> sequences = new ArrayList<>(1);
 
-    public TopologyBuilder(Command command, Map<String, Map<String, String>> nodeToProperties, List<String> fileNames, CodecFactoryMethod codecFactoryMethod) {
-        sequence = parseSteps(command.children.get(0), nodeToProperties, fileNames, codecFactoryMethod);//TODO commandBuilder.conf.children.get(0)
+    public TopologyBuilder(Command command, Map<String, Map<String, String>> nodeToProperties, CodecFactoryMethod codecFactoryMethod) {
+        for (Command child : command.children) {
+            Map<String, String> dataStreamPath = PropertiesParser.getParentKeyToChildProperty(nodeToProperties, child.getAllNames(), "input");
+            logger.info("Interpreting " + child.layer + " with " + dataStreamPath + " " + child.getAllNames());
+            List<String> fileNames = Collections.EMPTY_LIST;
+            if (dataStreamPath.size() > 0) {
+                String firstKey = dataStreamPath.keySet().iterator().next();
+                Path basePath = Paths.get(dataStreamPath.get(firstKey));
+                if (Files.isDirectory(basePath, LinkOption.NOFOLLOW_LINKS)) {
+                    String ignore = null;
+                    RecursiveFileCollector walk = new RecursiveFileCollector(ignore);
+                    try {
+                        Files.walkFileTree(basePath, walk);
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
+                    fileNames = walk.result.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
+                    logger.info("Interpreting:\n" + child + " with " + fileNames.size() + " steps from " + basePath + " brought by " + firstKey + ".input");
+                } else {
+                    logger.warn("Not found " + basePath);
+                }
+            } else {
+                logger.warn("No dataStreamPath found ");
+            }
+            sequences.add(parseSteps(child, nodeToProperties, fileNames, codecFactoryMethod));
+        }
     }
 
-    public static Sequence parseSteps(Command command, Map<String, Map<String, String>> allCommands, List<String> names, CodecFactoryMethod codecFactoryMethod) {
+    public static Sequence parseSteps(Command command, Map<String, Map<String, String>> allCommands, List<String> steps, CodecFactoryMethod codecFactoryMethod) {
 
         Map<String, Map<String, String>> sequenceCommand = allCommands.entrySet().stream()
                 .filter(a -> command.layer.contains(a.getKey()))
                 .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
         List<Sequence> childSequences = command.children.stream()
-                .map(e-> parseSteps(e, allCommands, names, codecFactoryMethod))
+                .map(e -> parseSteps(e, allCommands, steps, codecFactoryMethod))
                 .collect(Collectors.toList());
         logger.info("create sequence " + sequenceCommand.keySet() + " " + childSequences.size());
-        return createSequence(sequenceCommand, names, childSequences, codecFactoryMethod);
+        return createSequence(sequenceCommand, steps, childSequences, codecFactoryMethod);
     }
 
     public static Sequence createSequence(Map<String, Map<String, String>> command, List<String> names, List<Sequence> childSequences, CodecFactoryMethod codecFactoryMethod) {
@@ -108,6 +136,29 @@ public class TopologyBuilder {
                     e.getValue().get("processLogFile"));
         } else {
             return null;
+        }
+    }
+
+    private class RecursiveFileCollector extends SimpleFileVisitor<Path> {
+        public final List<Path> result = new ArrayList<>();
+        private final String ignore;
+        public RecursiveFileCollector(String ignore) {
+            this.ignore = ignore;
+        }
+
+        @Override
+        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+            if (dir.getFileName().toString().equals(ignore)) {
+                return FileVisitResult.SKIP_SUBTREE;
+            } else {
+                return super.preVisitDirectory(dir, attrs);
+            }
+        }
+
+        @Override
+        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+            result.add(file);
+            return FileVisitResult.CONTINUE;
         }
     }
 }
