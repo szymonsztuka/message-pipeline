@@ -1,8 +1,8 @@
 package radar.conf;
 
-import radar.Bootstrap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import radar.Bootstrap;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -31,11 +31,11 @@ public class PropertiesParser {
 
         final Map<String, String> properties = loadProperties(args);
         logger.trace("properties: " + properties);
-System.out.print("properties: " + properties);
-        selectedNodes = Arrays.asList(properties.get("command.control_flow").split(",|;|\\(|\\)")).stream().filter(e -> e.length() >0).collect(Collectors.toSet());
+
+        selectedNodes = Arrays.asList(properties.get("command").split(",|;|\\(|\\)|\\{|}")).stream().filter(e -> e.length() > 0).collect(Collectors.toSet());
         logger.trace("selectedNodes: " + selectedNodes);
 
-        final Map<String,String> variables = filterProperties(properties, "env.").entrySet().stream()
+        final Map<String, String> variables = filterProperties(properties, "env.").entrySet().stream()
                 .collect(Collectors.toMap(e -> e.getKey().substring("env.".length()), e -> e.getValue()));
         logger.trace("variables: " + variables);
 
@@ -48,15 +48,8 @@ System.out.print("properties: " + properties);
         nodeToProperties = wrapProperties(resolvedProperties);
         logger.trace("nodeToProperties: " + nodeToProperties);
 
-        nodeSequences = Arrays.asList(properties.get("command.control_flow").split(";"));
+        nodeSequences = Arrays.asList(properties.get("command").split(";"));
         logger.trace("nodeSequences: " + nodeSequences);
-    }
-
-    public String toString(){
-        return  "input arguments: " + inputArguments
-                + "\nnodeToProperties: " + nodeToProperties
-                + "\nselectedNodes: " + selectedNodes
-                + "\nnodeSequences: " + nodeSequences;
     }
 
     public static Map<String, String> loadProperties(String[] arguments) {
@@ -132,10 +125,10 @@ System.out.print("properties: " + properties);
                                 e -> e.getValue())));
     }
 
-    public static Map<String,String> getParentKeyToChildProperty( Map<String, Map<String, String>> properties, Set<String> parentKeys, String childKey){
-        return properties.entrySet().stream().filter( e -> parentKeys.contains(e.getKey()))
-                .filter( e-> e.getValue().keySet().contains(childKey))
-                .collect(Collectors.toMap(e -> e.getKey(), e ->  e.getValue().get(childKey)));
+    public static Map<String, String> getParentKeyToChildProperty(Map<String, Map<String, String>> properties, Set<String> parentKeys, String childKey) {
+        return properties.entrySet().stream().filter(e -> parentKeys.contains(e.getKey()))
+                .filter(e -> e.getValue().keySet().contains(childKey))
+                .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().get(childKey)));
     }
 
     class VariableResolver implements BiFunction<String, Map<String, String>, String> {
@@ -155,5 +148,12 @@ System.out.print("properties: " + properties);
             }
             return text;
         }
+    }
+
+    public String toString() {
+        return "input arguments: " + inputArguments
+                + "\nnodeToProperties: " + nodeToProperties
+                + "\nselectedNodes: " + selectedNodes
+                + "\nnodeSequences: " + nodeSequences;
     }
 }

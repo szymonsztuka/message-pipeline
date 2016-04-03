@@ -13,7 +13,8 @@ import java.nio.file.Paths;
 
 public class SshUtil {
 
-    public static void execScript(Channel channel, String script, Logger logger) {
+    public static int execScript(Channel channel, String script, Logger logger) {
+        int returnStatus;
         try {
             logger.debug(script);
             ((ChannelExec) channel).setCommand(script);
@@ -30,13 +31,15 @@ public class SshUtil {
                     logger.debug(new String(tmp, 0, i));
                 }
                 if (channel.isClosed()) {
-                    logger.trace("exit-status: " + channel.getExitStatus());
+                    returnStatus = channel.getExitStatus();
                     break;
                 }
             }
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
+            returnStatus = channel.getExitStatus();
         }
+        return returnStatus;
     }
 
     private static int checkAck(InputStream in) throws IOException {
@@ -162,33 +165,6 @@ public class SshUtil {
             }
         }
     }
-
-    /*public static void removeFile(Channel channel, String remoteSrcFile, Logger logger) {
-        try {
-            String script = "rm -f " + remoteSrcFile;
-            logger.debug(script);
-            ((ChannelExec) channel).setCommand(script);
-            InputStream in = channel.getInputStream();
-            OutputStream out = channel.getOutputStream();
-            ((ChannelExec) channel).setErrStream(new NullOutputStream());
-            channel.connect();
-            out.flush();
-            byte[] tmp = new byte[1024];
-            while (true) {
-                while (in.available() > 0) {
-                    int i = in.read(tmp, 0, 1024);
-                    if (i < 0) break;
-                    logger.debug(new String(tmp, 0, i));
-                }
-                if (channel.isClosed()) {
-                    logger.trace("exit-status: " + channel.getExitStatus());
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
-        }
-    }*/
 
     private static class NullOutputStream extends OutputStream {
         @Override

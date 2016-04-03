@@ -1,6 +1,6 @@
 package radar;
 
-import radar.conf.CommandBuilder;
+import radar.conf.CommandParser;
 import radar.conf.PropertiesParser;
 import radar.message.CodecFactoryMethod;
 import radar.topology.TopologyBuilder;
@@ -30,7 +30,7 @@ public class Bootstrap {
         for (String compoundStep : propertiesParser.nodeSequences) { //TODO move to sequence?
 
             Set<String> parentKeys = new HashSet<>();//TODO move to PropertiesParser
-            Collections.addAll(parentKeys, compoundStep.split(",|;|\\(|\\)"));
+            Collections.addAll(parentKeys, compoundStep.split(",|;|\\(|\\)|\\{|\\}"));
             Map<String, String> dataStreamPath = PropertiesParser.getParentKeyToChildProperty(propertiesParser.nodeToProperties, parentKeys, "input");
             logger.info("Interpreting " + compoundStep + " with " + dataStreamPath);
             List<String> fileNames = Collections.EMPTY_LIST;
@@ -54,12 +54,14 @@ public class Bootstrap {
                 logger.warn("No dataStreamPath found ");
             }
 
-            CommandBuilder commandBuilder = new CommandBuilder(compoundStep);
-            TopologyBuilder topologyBuilder = new TopologyBuilder(commandBuilder.command,
+            //CommandBuilder commandBuilder = new CommandBuilder(compoundStep);
+            CommandParser commandParser = new CommandParser(compoundStep);
+            //TopologyBuilder topologyBuilder = new TopologyBuilder(commandBuilder.oldCommand,
+            TopologyBuilder topologyBuilder = new TopologyBuilder(commandParser.command,
                     propertiesParser.nodeToProperties,
                     fileNames,
                     codecFactoryMethod);
-            Thread th = new Thread(topologyBuilder.sequence, topologyBuilder.sequence.getName());
+            Thread th = new Thread(topologyBuilder.sequence);
             th.start();
             try {
                 th.join();

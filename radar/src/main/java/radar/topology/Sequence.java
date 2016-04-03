@@ -17,22 +17,22 @@ public class Sequence implements Runnable {
     private final CyclicBarrier batchEnd;
     private final List<Runner> runners;
     private final List<Sequence> next;
-    private final String name;
-    private final List<String> fileNames;
-    private List<Thread> threads;
+    private final List<String> steps;
+    private final List<Thread> threads;
+    public final int millisecondsDelay;
 
-    public Sequence(String name, List<String> names, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<Runner> nodes, List<Sequence> next) {
+    public Sequence(List<String> steps, CyclicBarrier batchStart, CyclicBarrier batchEnd, List<Runner> nodes, List<Sequence> next, int millisecondsDelay) {
         this.batchStart = batchStart;
         this.batchEnd = batchEnd;
         this.runners = nodes;
+        this.threads = new ArrayList<>(this.runners.size());
+        this.runners.stream().forEach(e -> this.threads.add(new Thread(e, e.getName())));
         this.next = next;
-        this.name = name;
-        this.fileNames = names;
+        this.steps = steps;
+        this.millisecondsDelay = millisecondsDelay;
     }
 
     public void startRunners() {
-        threads = new ArrayList<>(runners.size());
-        runners.stream().forEach(e -> threads.add(new Thread(e, e.getName())));
         threads.forEach(Thread::start);
         if (next != null) {
             next.stream().forEach(Sequence::startRunners);
@@ -41,7 +41,7 @@ public class Sequence implements Runnable {
 
     public void step(String stepName, boolean last) {
         try {
-            Thread.sleep(1000);
+            Thread.sleep(millisecondsDelay);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -70,11 +70,16 @@ public class Sequence implements Runnable {
     @Override
     public void run() {
         startRunners();
-        logger.debug("nb dirWithSteps to process:" + fileNames.size());
-        Iterator<String> it = fileNames.iterator();
-        while (it.hasNext()) {
-            String elem = it.next();
-            step(elem, !it.hasNext());
+        if (steps.size() == 0) {
+            logger.debug("once off run (number of steps to process:" + steps.size());
+            step("", false);
+        } else {
+            logger.debug("number of steps to process:" + steps.size());
+            Iterator<String> it = steps.iterator();
+            while (it.hasNext()) {
+                String elem = it.next();
+                step(elem, !it.hasNext());
+            }
         }
         try {
             for (Thread th : threads)
@@ -82,17 +87,13 @@ public class Sequence implements Runnable {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        logger.info("End");
-    }
-
-    public String getName() {
-        return name;
+        logger.info("end");
     }
 
     public String toString() {
         String res = "{" + runners.toString() + "}";
         if (next != null)
-            for (Sequence e : next) {
+            for (Sequence e: next) {
                 res = res + e.toString();
             }
         return res;

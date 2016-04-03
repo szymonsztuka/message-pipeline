@@ -1,66 +1,40 @@
 package radar.conf;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Command {
-    public final List<Command> children = new ArrayList<>();
-    public final Set<String> layer = new TreeSet<>();
-    public final boolean stateful;
+    public Set<String> layer = new TreeSet<>();
+    public List<Command> children = new ArrayList<>(1);
 
-    public Command(String name, boolean stateful) {
+    public Command() {
+    }
+
+    public Command(String name) {
         layer.add(name);
-        this.stateful = stateful;
     }
 
     public String toString() {
-        return layer.toString() + (children.size() > 0 ? ":" + children.size() : "");
+        return toString("", "");
     }
 
-    public String toVerboseString(int x, String pad) {
-        String z = "";
-        for (int i = 0; i < x * 2; i++) {
-            z += " ";
-        }
-        if (children.size() > 0) {
-            int max = 0;
-            for (Command g : children) {
-                int c = g.width(1);
-                if (c > max) max = c;
-            }
-            pad = "";
-            for (int i = 0; i < max - 1; i++) {
-                pad += "-";
-            }
-            pad += "-->|";
-        }
-        if (layer.contains("(")) {
-            z = "";
-        } else {
-            int ff = pad.length() - layer.toString().length();
-            if (stateful) z += "[";
-            z += layer.toString().substring(1, layer.toString().length() - 1);
-            if (stateful) z += "]";
-            z += (ff > 0 ? pad.substring(pad.length() - ff, pad.length()) : (children.size() > 0 ? "-->|" : (x > 1 ? "-->|" : "")));
-            z += "\n";
-            pad = "";
-        }
-        for (Command g : children) {
-            z += g.toVerboseString(x + 1, pad);
-        }
-        return z;
-    }
+    private String toString(String rootToParentOffset, String parentToMeOffset) {
+        List<String> res = children.stream()
+                .map(e -> e.toString(rootToParentOffset + parentToMeOffset,
+                        "|" + String.format("%" + layer.toString().length() + "s", "")))
+                .collect(Collectors.toList());
 
-    public int width(int level) {
-        int best = layer.toString().length() + 2 * level;
-        for (Command g : children) {
-            int c = g.width(level + 1);
-            if (c > best) {
-                best = c;
-            }
+        char[] repeat = new char[parentToMeOffset.length()];
+        Arrays.fill(repeat, '-');
+        if (repeat.length > 0) {
+            repeat[0] = '|';
+            repeat[repeat.length - 1] = '>';
         }
-        return best + 2;
+        String formattedLayer = "{" + layer.toString().substring(1, layer.toString().length() - 1) + "}";
+        String result = rootToParentOffset + String.valueOf(repeat) + formattedLayer + "\n";
+        for (String e : res) {
+            result = result + e;
+        }
+        return result;
     }
 }
