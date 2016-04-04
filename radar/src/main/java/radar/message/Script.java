@@ -1,5 +1,6 @@
 package radar.message;
 
-public interface ScriptGenerator {
+public interface Script {
+
     String generate(final String ... args);
 }

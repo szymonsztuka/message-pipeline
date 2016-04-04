@@ -1,6 +1,6 @@
 package radar.message;
 
-public class DummyScriptGenerator implements ScriptGenerator {
+public class DummyScript implements Script {
     @Override
     public String generate(final String... args) {
         return "";

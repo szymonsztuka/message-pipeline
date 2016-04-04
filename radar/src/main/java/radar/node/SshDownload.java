@@ -4,7 +4,7 @@ import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import org.slf4j.LoggerFactory;
-import radar.message.ScriptGenerator;
+import radar.message.Script;
 
 import java.nio.file.Path;
 
@@ -15,16 +15,16 @@ public class SshDownload implements Node {
     private final String user;
     private final String host;
     private final String password;
-    private final ScriptGenerator scriptGenerator;
+    private final Script script;
     private final Path path;
     private Session session;
 
-    public SshDownload(Path directory, String user, String host, String password, ScriptGenerator scriptGenerator) {
+    public SshDownload(Path directory, String user, String host, String password, Script script) {
         this.path = directory;
         this.user = user;
         this.host = host;
         this.password = password;
-        this.scriptGenerator = scriptGenerator;
+        this.script = script;
     }
 
     @Override
@@ -46,7 +46,7 @@ public class SshDownload implements Node {
     public void step(Path data) {
         try {
             Channel channel = session.openChannel("exec");
-            SshUtil.downloadFile(channel, scriptGenerator.generate(path.toString()), path.toString(), logger);
+            SshUtil.downloadFile(channel, script.generate(path.toString()), path.toString(), logger);
             channel.disconnect();
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
