@@ -16,17 +16,17 @@ import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
 import java.util.stream.Collectors;
 
-public class TopologyBuilder {
+public class SequenceBuilder {
 
-    private static final Logger logger = LoggerFactory.getLogger(TopologyBuilder.class);
+    private static final Logger logger = LoggerFactory.getLogger(SequenceBuilder.class);
 
     private final NodeFactory nodeFactory;
 
     public final List<Sequence> sequences = new ArrayList<>(1);
 
-    public TopologyBuilder(NodeFactory nodeFactory, Command command, Map<String, Map<String, String>> nodeToProperties) {
+    public SequenceBuilder(NodeFactory nodeFactory, Command command, Map<String, Map<String, String>> nodeToProperties) {
         this.nodeFactory = nodeFactory;
-        for (Command child : command.children) {
+        for (Command child: command.children) {
             Map<String, String> dataStreamPath = PropertiesParser.getParentKeyToChildProperty(nodeToProperties, child.getAllNames(), "input");
             List<String> fileNames = Collections.EMPTY_LIST;
             if (dataStreamPath.size() > 0) {
@@ -68,7 +68,7 @@ public class TopologyBuilder {
         List<Runner> runners = new ArrayList<>(command.size());
         for (Map.Entry<String, Map<String, String>> e : command.entrySet()) {
             Node node = nodeFactory.createNode(e);
-            if (node != null) {
+            if (node != null) { //TODO nodes number should equal command.size() otherwise Sequence will block on a barrier
                 runners.add(new Runner(e.getKey(), node, startBarrier, stopBarrier));
             }
         }
@@ -76,8 +76,7 @@ public class TopologyBuilder {
             names = new ArrayList(1);
             names.add("1"); //TODO once off sequence
         }
-        Sequence layer = new Sequence(names, startBarrier, stopBarrier, runners, childSequences, 1000);
-        return layer;
+        return new Sequence(names, startBarrier, stopBarrier, runners, childSequences, 1000);
     }
 
     private class RecursiveFileCollector extends SimpleFileVisitor<Path> {

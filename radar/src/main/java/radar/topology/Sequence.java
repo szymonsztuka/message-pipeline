@@ -47,7 +47,7 @@ public class Sequence implements Runnable {
         }
         runners.forEach(e -> e.addStep(stepName));
         try {
-            //logger.debug(name + " " + stepName + " start " + batchStart.getParties() + " " + batchStart.getNumberWaiting() );
+            logger.trace(stepName + " start " + batchStart.getParties() + " " + batchStart.getNumberWaiting() );
             batchStart.await();
         } catch (InterruptedException | BrokenBarrierException e) {
             e.printStackTrace();
@@ -60,7 +60,7 @@ public class Sequence implements Runnable {
             runners.forEach(Runner::finish);
         }
         try {
-            //logger.debug(name + " " + stepName + " end " + batchEnd.getParties() + " " + batchEnd.getNumberWaiting());
+            logger.trace(stepName + " end " + batchEnd.getParties() + " " + batchEnd.getNumberWaiting());
             batchEnd.await();
         } catch (InterruptedException | BrokenBarrierException e) {
             e.printStackTrace();

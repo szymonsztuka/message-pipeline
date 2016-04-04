@@ -7,34 +7,36 @@ import radar.message.EncoderFactory;
 import radar.message.ScriptFactory;
 import radar.node.NodeFactory;
 import radar.topology.Sequence;
-import radar.topology.TopologyBuilder;
+import radar.topology.SequenceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class Bootstrap {
+public class Radar {
 
-    private static final Logger logger = LoggerFactory.getLogger(Bootstrap.class);
+    private static final Logger logger = LoggerFactory.getLogger(Radar.class);
 
     private final EncoderFactory encoderFactory;
     private final DecoderFactory decoderFactory;
     private final ScriptFactory scriptFactory;
+    private final String[] configurationFiles;
 
-    public Bootstrap(EncoderFactory encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory) {
+    public Radar(EncoderFactory encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory, String[] configurationFiles ) {
         this.encoderFactory = encoderFactory;
         this.decoderFactory = decoderFactory;
         this.scriptFactory = scriptFactory;
+        this.configurationFiles = configurationFiles;
     }
 
-    public void run(String[] args) {
-
-        PropertiesParser propertiesParser = new PropertiesParser(args);
+    public void run() {
+        PropertiesParser propertiesParser = new PropertiesParser(configurationFiles);
         CommandParser commandParser = new CommandParser(propertiesParser.rawCommand);
-        TopologyBuilder topologyBuilder = new TopologyBuilder(
-                new NodeFactory(encoderFactory, decoderFactory, scriptFactory),
+        SequenceBuilder sequenceBuilder = new SequenceBuilder(
+                new NodeFactory(encoderFactory,
+                        decoderFactory,
+                        scriptFactory),
                 commandParser.command,
-                propertiesParser.nodeToProperties
-                );
-        for(Sequence seq: topologyBuilder.sequences) {
+                propertiesParser.nodeToProperties);
+        for(Sequence seq: sequenceBuilder.sequences) {
             Thread th = new Thread(seq);
             th.start();
             try {

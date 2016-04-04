@@ -52,7 +52,7 @@ public class Runner implements Runnable {
         node.start();
         while (process) {
             try {
-                //logger.debug(name + " s " + batchStart.getParties() + " " + batchStart.getNumberWaiting() + " " + node.getClass().getName().toString() + " " + process);
+                logger.trace(name + " s " + batchStart.getParties() + " " + batchStart.getNumberWaiting() + " " + node.getClass().getName().toString() + " " + process);
                 batchStart.await();
             } catch (InterruptedException | BrokenBarrierException e) {
                 e.printStackTrace();
@@ -61,7 +61,7 @@ public class Runner implements Runnable {
             node.step(path);
 
             try {
-                //logger.debug(name + " e " + batchStart.getParties() + " " + batchStart.getNumberWaiting());
+                logger.trace(name + " e " + batchStart.getParties() + " " + batchStart.getNumberWaiting());
                 batchEnd.await();
             } catch (InterruptedException | BrokenBarrierException e) {
                 e.printStackTrace();

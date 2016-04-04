@@ -19,11 +19,10 @@ subprojects {
 }
 
 project(':radar-samples') {
-
     dependencies {
         compile project(':radar')
     }
-    //below code seems to be incompatible with jitpack:
+    //below code seems to be incompatible with jitpack.io:
 /*
     apply plugin: 'application'
     mainClassName = 'radar.TxtBootstrap'
@@ -33,7 +32,7 @@ project(':radar-samples') {
         }
     }
     task addOn1Jar(type: Jar) {
-        baseName = "AddOnPassThroughTcpServer2"
+        archiveName = "AddOnPassThroughTcpServer2.jar"
         manifest {
             attributes 'Main-Class': 'radar.addon.PassThroughTcpServer2'
         }
@@ -41,7 +40,7 @@ project(':radar-samples') {
         include 'radar/addon/PassThroughTcpServer2.*'
     }
     task addOn2Jar(type: Jar) {
-        baseName = "AddOnCopyFile"
+        archiveName = "AddOnCopyFile.jar"
         manifest {
             attributes 'Main-Class': 'radar.addon.CopyFile'
         }
@@ -52,5 +51,5 @@ project(':radar-samples') {
         archives addOn1Jar
         archives addOn2Jar
     }
-*/
+    */
 }

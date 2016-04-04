@@ -2,7 +2,6 @@ package radar.conf;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import radar.Bootstrap;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -52,7 +51,7 @@ public class PropertiesParser {
         logger.trace("nodeSequences: " + nodeSequences);
     }
 
-    public static Map<String, String> loadProperties(String[] arguments) {
+    public static Map<String, String> loadProperties(String[] arguments/*, URI propertiesFileRoot*/) {
         Optional<Properties> properties = Arrays.stream(arguments)
                 .filter((String s) -> !s.startsWith("-"))
                 .map((String s) -> {
@@ -61,11 +60,11 @@ public class PropertiesParser {
                     if (p.isAbsolute()) {
                         path = p;
                     } else {
-                        try {
-                            Path root = Paths.get(Bootstrap.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+                        try { //http://stackoverflow.com/questions/320542/how-to-get-the-path-of-a-running-jar-file
+                            Path root = Paths.get(PropertiesParser.class.getProtectionDomain().getCodeSource().getLocation().toURI());
                             path = root.getParent().resolveSibling(p);
                         } catch (URISyntaxException e) {
-                            System.err.println(e); //TODO log
+                            logger.error(e.getMessage(), e);
                             path = p;
                         }
                     }
@@ -76,7 +75,7 @@ public class PropertiesParser {
                     try {
                         prop.load(Files.newBufferedReader(p, StandardCharsets.UTF_8));
                     } catch (IOException e) {
-                        System.err.println(e);//TODO log
+                        logger.error(e.getMessage(), e);
                     }
                     return prop;
                 })
