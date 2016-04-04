@@ -27,7 +27,6 @@ public class TopologyBuilder {
     public TopologyBuilder(Command command, Map<String, Map<String, String>> nodeToProperties, CodecFactoryMethod codecFactoryMethod) {
         for (Command child : command.children) {
             Map<String, String> dataStreamPath = PropertiesParser.getParentKeyToChildProperty(nodeToProperties, child.getAllNames(), "input");
-            logger.info("Interpreting " + child.layer + " with " + dataStreamPath + " " + child.getAllNames());
             List<String> fileNames = Collections.EMPTY_LIST;
             if (dataStreamPath.size() > 0) {
                 String firstKey = dataStreamPath.keySet().iterator().next();
@@ -41,12 +40,10 @@ public class TopologyBuilder {
                         ex.printStackTrace();
                     }
                     fileNames = walk.result.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
-                    logger.info("Interpreting:\n" + child + " with " + fileNames.size() + " steps from " + basePath + " brought by " + firstKey + ".input");
-                } else {
-                    logger.warn("Not found " + basePath);
                 }
+                logger.info(String.format("Interpreting topology with %s steps from %s.input=%s:\n%s", fileNames.size() , firstKey, basePath, child));
             } else {
-                logger.warn("No dataStreamPath found ");
+                logger.info("Interpreting topology without steps (no property '.input' provided within the scope):\n" + child );
             }
             sequences.add(parseSteps(child, nodeToProperties, fileNames, codecFactoryMethod));
         }
@@ -60,7 +57,6 @@ public class TopologyBuilder {
         List<Sequence> childSequences = command.children.stream()
                 .map(e -> parseSteps(e, allCommands, steps, codecFactoryMethod))
                 .collect(Collectors.toList());
-        logger.info("create sequence " + sequenceCommand.keySet() + " " + childSequences.size());
         return createSequence(sequenceCommand, steps, childSequences, codecFactoryMethod);
     }
 
