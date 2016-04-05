@@ -2,7 +2,7 @@ package radar.message;
 
 import java.nio.ByteBuffer;
 
-public interface Encoder {
+public interface Encoder<T> {
 
-    boolean write(final String src, final ByteBuffer dst);
+    boolean write(final T src, final ByteBuffer dst);
 }

@@ -1,10 +1,10 @@
 package radar.node;
 
-import radar.message.Encoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import radar.message.Encoder;
+import radar.message.Reader;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -13,8 +13,6 @@ import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -22,11 +20,12 @@ import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
-public class SocketWriter implements Node {
+public class SocketWriter<T> implements Node {
 
     private static final Logger logger = LoggerFactory.getLogger(SocketWriter.class);
 
-    private final List<Encoder> generators;
+    private final List<Encoder<T>> generators;
+    private final List<Reader<T>> readers;
     private final InetSocketAddress address;
     private final Path dir;
     private final CyclicBarrier writerBatchStart;
@@ -36,11 +35,12 @@ public class SocketWriter implements Node {
     private ServerSocketChannel serverSocketChannel;
     private final List<SocketChannel> sockets = new ArrayList<>(1);
 
-    public SocketWriter(Path src, InetSocketAddress dst, List<Encoder> encoders) {
+    public SocketWriter(Path src, InetSocketAddress dst, List<Reader<T>> readers, List<Encoder<T>> encoders) {
 
-        this.generators = encoders;
         this.dir = src;
         this.address = dst;
+        this.readers = readers;
+        this.generators = encoders;
         this.writerBatchStart = new CyclicBarrier(this.generators.size() + 1);
         this.writerBatchEnd = new CyclicBarrier(this.generators.size() + 1);
     }
@@ -60,11 +60,11 @@ public class SocketWriter implements Node {
                 for (int i = 0; i < generators.size(); i++) {
                     try {
                         SocketChannel socketChannel = serverSocketChannel.accept();
-                        sockets.add(socketChannel);
-                        SubProducer subProducer = new SubProducer(socketChannel, generators.get(i), writerBatchStart, writerBatchEnd);
+                        sockets.add(socketChannel); //TODO below should be factory invocation
+                        SubProducer subProducer = new SubProducer(socketChannel, readers.get(i), generators.get(i), writerBatchStart, writerBatchEnd);
                         writers.add(subProducer);
                         Thread subThread = new Thread(subProducer);
-                        subThread.setName(Thread.currentThread().getName()+ "-" + i); //optional
+                        subThread.setName(Thread.currentThread().getName() + "-" + i); //optional
                         subThread.start();
                         writerThreads.add(subThread);
                     } catch (IOException ex) {
@@ -87,7 +87,7 @@ public class SocketWriter implements Node {
 
     @Override
     public void end() {
-        writers.forEach(t ->  t.process = false );
+        writers.forEach(t -> t.process = false);
         try {
             logger.debug("is (e) " + writerBatchStart.getParties() + " " + writerBatchStart.getNumberWaiting());
             writerBatchStart.await();
@@ -96,10 +96,10 @@ public class SocketWriter implements Node {
             e.printStackTrace();
             logger.error(e.getMessage(), e);
         }
-        sockets.forEach( e -> {
+        sockets.forEach(e -> {
             try {
                 e.close();
-            } catch(IOException ex){
+            } catch (IOException ex) {
                 ex.printStackTrace();
                 logger.error(ex.getMessage(), ex);
             }
@@ -120,7 +120,7 @@ public class SocketWriter implements Node {
     @Override
     public void step(Path step) {
         Path path = Paths.get(dir + File.separator + step);
-        writers.forEach(p -> p.path = path );
+        writers.forEach(p -> p.path = path);
         try {
             logger.debug("is " + writerBatchStart.getParties() + " " + writerBatchStart.getNumberWaiting() + " " + path.toString());
             writerBatchStart.await();
@@ -139,30 +139,32 @@ public class SocketWriter implements Node {
         }
     }
 
-    class SubProducer implements Runnable {
+    class SubProducer<T> implements Runnable {
 
         private final Logger logger = LoggerFactory.getLogger(SubProducer.class);
 
         private final SocketChannel socketChannel;
-        private final Encoder generator;
+        private final Reader<T> reader;
+        private final Encoder<T> generator;
         private final CyclicBarrier internalBatchStart;
         private final CyclicBarrier internalBatchEnd;
         volatile boolean process = true;
         volatile Path path;
 
-        public SubProducer(SocketChannel socketChannel, Encoder encoder,
-                           CyclicBarrier internalBatchStart,  CyclicBarrier internalBatchEnd) {
-            this.generator = encoder;
+        public SubProducer(SocketChannel socketChannel, Reader<T> reader, Encoder<T> encoder,
+                           CyclicBarrier internalBatchStart, CyclicBarrier internalBatchEnd) {
+
             this.socketChannel = socketChannel;
+            this.reader = reader;
+            this.generator = encoder;
             this.internalBatchStart = internalBatchStart;
             this.internalBatchEnd = internalBatchEnd;
         }
 
         public void run() {
-            String line;
             ByteBuffer buffer = ByteBuffer.allocateDirect(4048);
             while (true) {
-                logger.trace("Producer opening " + path);
+                logger.trace("producer opening " + path);
                 try {
                     logger.debug("is " + internalBatchStart.getParties() + " " + internalBatchStart.getNumberWaiting() + " " + (path != null ? path.toString() : null) + " " + process);
                     internalBatchStart.await();
@@ -172,27 +174,23 @@ public class SocketWriter implements Node {
                     logger.error(e.getMessage(), e);
                 }
                 if (!process) {
-                    logger.info("End");
+                    logger.info("end");
                     return;
                 }
-                try (BufferedReader reader = Files.newBufferedReader(path, Charset.forName("UTF-8"))) {
-                    while ((line = reader.readLine()) != null) {
-                        if (line.length() > 0) {
-                            try {
-                                logger.trace("Producer sends   " + line);
-                                generator.write(line, buffer);
-                                buffer.flip();
-                                socketChannel.write(buffer);
-                                //if (buffer.remaining() > 0) { System.out.println("! remaining " + buffer.remaining() + " " + buffer.limit() + " " + buffer.position()); }
-                                buffer.clear();
-                            } catch (BufferOverflowException ex) {
-                                logger.error("error", ex);
-                            }
-                        }
+                reader.open(path);
+                T message;
+                while ((message = reader.readMessage()) != null) {
+                    try {
+                        generator.write(message, buffer);
+                        buffer.flip();
+                        socketChannel.write(buffer);
+                        //if (buffer.remaining() > 0) { System.out.println("! remaining " + buffer.remaining() + " " + buffer.limit() + " " + buffer.position()); }
+                        buffer.clear();
+                    } catch (BufferOverflowException | IOException e) {
+                        logger.error(e.getMessage(), e);
                     }
-                } catch (IOException ex) {
-                    logger.error("cannot write data ", ex);
                 }
+                reader.close();
                 try {
                     logger.debug("ie " + internalBatchEnd.getParties() + " " + internalBatchEnd.getNumberWaiting() + " " + (path != null ? path.toString() : null) + " " + process);
                     internalBatchEnd.await();

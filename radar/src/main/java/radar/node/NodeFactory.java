@@ -1,8 +1,6 @@
 package radar.node;
 
-import radar.message.DecoderFactory;
-import radar.message.EncoderFactory;
-import radar.message.ScriptFactory;
+import radar.message.*;
 
 import java.net.InetSocketAddress;
 import java.nio.file.Paths;
@@ -10,16 +8,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class NodeFactory {
+public class NodeFactory<T> {
 
-    private final EncoderFactory encoderfactory;
+    private final EncoderFactory<T> encoderFactory;
+    private final ReaderFactory<T> readerFactory;
     private final DecoderFactory decoderFactory;
     private final ScriptFactory scriptFactory;
 
-    public NodeFactory(EncoderFactory encoderfactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory){
-        this.encoderfactory = encoderfactory;
+    public NodeFactory(ReaderFactory<T> readerFactory, EncoderFactory<T> encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory){
+        this.encoderFactory = encoderFactory;
         this.decoderFactory = decoderFactory;
         this.scriptFactory = scriptFactory;
+        this.readerFactory = readerFactory;
     }
 
     public Node createNode(Map.Entry<String, Map<String, String>> e) {
@@ -31,12 +31,15 @@ public class NodeFactory {
             } else {
                 clientsNumber = 1;
             }
-            List generators = new ArrayList<>(clientsNumber);
+            List<Encoder<T>> generators = new ArrayList<>(clientsNumber);
+            List<Reader<T>> readers = new ArrayList<>(clientsNumber);
             for (int j = 0; j < clientsNumber; j++) {
-                generators.add(encoderfactory.getMessageEncoder(e.getValue().get("encoder")));
+                generators.add(encoderFactory.getMessageEncoder(e.getValue().get("encoder")));
+                readers.add(readerFactory.getReader());
             }
-            return new SocketWriter(Paths.get(e.getValue().get("input")),
+          return new SocketWriter(Paths.get(e.getValue().get("input")),
                     new InetSocketAddress(e.getValue().get("ip"), Integer.parseInt(e.getValue().get("port"))),
+                    readers,
                     generators);
         } else if ("receiver".equals(e.getValue().get("type"))) {
             return new SocketReader(

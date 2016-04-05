@@ -1,6 +1,6 @@
 package radar.message;
 
-public interface EncoderFactory {
+public interface EncoderFactory<T> {
 
-    Encoder getMessageEncoder(String type);
+    Encoder<T> getMessageEncoder(String type);
 }
