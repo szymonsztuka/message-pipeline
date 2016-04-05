@@ -1,4 +1,4 @@
-package radar.node;
+package radar.processor;
 
 import org.slf4j.Logger;
 

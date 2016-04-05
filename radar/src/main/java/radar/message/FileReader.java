@@ -8,7 +8,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class FileReader implements Reader<String> {
+public class FileReader implements Reader {
 
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(FileReader.class);
     private BufferedReader reader;

@@ -49,9 +49,7 @@ public class PassThroughTcpServer implements Runnable {
                                 serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
                                 serverSocketChannel.bind(new InetSocketAddress(ip, serverPort));
                                 System.out.println("serverSocketChannel.getLocalAddress() open " + serverSocketChannel.getLocalAddress() + " " + run);
-                                //System.out.println("Waiting for connections ...");
                                 while (run) {
-                                    System.out.println("g");
                                     try (SocketChannel serverChannel = serverSocketChannel.accept()) {
                                         System.out.println("Incoming connection from: " + serverChannel.getRemoteAddress());
                                         while (clientChannel.read(buffer) != -1) { //client reads
@@ -64,16 +62,14 @@ public class PassThroughTcpServer implements Runnable {
                                                 buffer.clear();
                                             }
                                         }
-                                        System.out.println("z");
                                         run = false;
                                     } catch (IOException ex) {
                                         ex.printStackTrace();
                                     }
-                                    System.out.println("g2");
                                 }
                                 System.out.println("serverSocketChannel.getLocalAddress() end " + serverSocketChannel.getLocalAddress());
                             } else {
-                                System.out.println("The server socket channel cannot be opened!");
+                                System.err.println("server socket channel cannot be opened");
                             }
                         } catch (IOException ex) {
                             System.err.println(ex);
@@ -88,6 +84,7 @@ public class PassThroughTcpServer implements Runnable {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            System.out.println("end");
         }
     }
 }

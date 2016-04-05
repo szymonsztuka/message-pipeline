@@ -9,7 +9,7 @@ public class TxtBootstrap {
 
     public static void main(String[] args) {
         String[] configurationFiles = new String[]{"../../radar-samples/build/resources/main/sample.properties","../../radar-samples/build/resources/main/my-env.properties"};
-        Radar<String> me = new Radar<>(
+        Radar me = new Radar(
                 new FileReaderFactory(),
                 new TxtEncoderFactory(),
                 new TxtDecoderFactory(),

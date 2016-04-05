@@ -1,4 +1,4 @@
-package radar.node;
+package radar.processor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 /** Long running JVM process which doesn't terminate itself */
-public class LongJvmProcess implements Node {
+public class LongJvmProcess implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(LongJvmProcess.class);
 

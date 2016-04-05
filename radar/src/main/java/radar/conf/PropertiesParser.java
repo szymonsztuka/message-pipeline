@@ -19,10 +19,10 @@ public class PropertiesParser {
     private static final Logger logger = LoggerFactory.getLogger(PropertiesParser.class);
 
     public final List<String> inputArguments;
-    public final Map<String, Map<String, String>> nodeToProperties;
-    public final Set<String> selectedNodes;
-    public List<String> nodeSequences;
-    public String rawCommand;
+    public final String rawCommand;
+    public final Map<String, Map<String, String>> nameToProperties;
+    public final Set<String> names;
+
     public PropertiesParser(final String[] args) {
 
         inputArguments = Arrays.asList(args);
@@ -31,27 +31,25 @@ public class PropertiesParser {
         final Map<String, String> properties = loadProperties(args);
         logger.trace("properties: " + properties);
 
-        selectedNodes = Arrays.asList(properties.get("command").split(",|;|\\(|\\)|\\{|}")).stream().filter(e -> e.length() > 0).collect(Collectors.toSet());
-        logger.trace("selectedNodes: " + selectedNodes);
+        names = Arrays.asList(properties.get("command").split(",|;|\\(|\\)|\\{|}")).stream().filter(e -> e.length() > 0).collect(Collectors.toSet());
+        logger.trace("names: " + names);
+
         rawCommand = properties.get("command");
         final Map<String, String> variables = filterProperties(properties, "env.").entrySet().stream()
                 .collect(Collectors.toMap(e -> e.getKey().substring("env.".length()), e -> e.getValue()));
         logger.trace("variables: " + variables);
 
-        final Map<String, String> selectedProperties = filterProperties(properties, selectedNodes.stream().map(e -> e + ".").collect(Collectors.toSet()));
+        final Map<String, String> selectedProperties = filterProperties(properties, names.stream().map(e -> e + ".").collect(Collectors.toSet()));
         logger.trace("selectedProperties: " + selectedProperties);
 
-        final Map<String, String> resolvedProperties = replaceVariables(selectedProperties, variables, new VariableResolver());
+        final Map<String, String> resolvedProperties = resolveVariables(selectedProperties, variables, new VariableResolver());
         logger.trace("resolvedProperties: " + resolvedProperties);
 
-        nodeToProperties = wrapProperties(resolvedProperties);
-        logger.trace("nodeToProperties: " + nodeToProperties);
-
-        nodeSequences = Arrays.asList(properties.get("command").split(";"));
-        logger.trace("nodeSequences: " + nodeSequences);
+        nameToProperties = wrapProperties(resolvedProperties);
+        logger.trace("nameToProperties: " + nameToProperties);
     }
 
-    public static Map<String, String> loadProperties(String[] arguments/*, URI propertiesFileRoot*/) {
+    public static Map<String, String> loadProperties(String[] arguments) {
         Optional<Properties> properties = Arrays.stream(arguments)
                 .filter((String s) -> !s.startsWith("-"))
                 .map((String s) -> {
@@ -94,8 +92,6 @@ public class PropertiesParser {
         return properties.get().entrySet().stream()
                 .collect(Collectors.toMap(e -> String.valueOf(e.getKey()),
                         e -> String.valueOf(e.getValue())));
-        // (new TreeMap(fileProperties.get())).forEach((k, v) -> System.out.println(k + "=" + v));//TreeMap to order elements, Properties is a hashmap
-        //  Arrays.asList(fileProperties.get().getProperty("run").split("->|,|;")).forEach(s -> System.out.println(s.trim()));
     }
 
     public static Map<String, String> filterProperties(Map<String, String> properties, String prefix) {
@@ -110,7 +106,7 @@ public class PropertiesParser {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    public static Map<String, String> replaceVariables(Map<String, String> properties, Map<String, String> variables, BiFunction<String, Map<String, String>, String> replacer) {
+    public static Map<String, String> resolveVariables(Map<String, String> properties, Map<String, String> variables, BiFunction<String, Map<String, String>, String> replacer) {
         return properties.entrySet().stream()
                 .collect(Collectors.toMap(e -> String.valueOf(e.getKey()),
                         e -> String.valueOf(replacer.apply(e.getValue().toString(), variables))));
@@ -133,17 +129,17 @@ public class PropertiesParser {
     class VariableResolver implements BiFunction<String, Map<String, String>, String> {
         @Override
         public String apply(String text, Map<String, String> variables) {
-            for (Map.Entry<String, String> var : variables.entrySet()) {
-                final String newVal;
-                if (var.getValue().startsWith("today.format(")) {
+            for (Map.Entry<String, String> variable: variables.entrySet()) {
+                final String resolvedVariable;
+                if (variable.getValue().startsWith("today.format(")) {
                     int start = "today.format('".length();
-                    int end = var.getValue().length() - 2;//get rid of last ')
-                    String format = var.getValue().substring(start, end);
-                    newVal = (new SimpleDateFormat(format)).format(Calendar.getInstance().getTime()); //today
+                    int end = variable.getValue().length() - 2;//get rid of last ')
+                    String format = variable.getValue().substring(start, end);
+                    resolvedVariable = (new SimpleDateFormat(format)).format(Calendar.getInstance().getTime()); //today
                 } else {
-                    newVal = var.getValue();
+                    resolvedVariable = variable.getValue();
                 }
-                text = text.replace("${" + var.getKey() + "}", newVal); //variable use is enclosed in '${' '}'
+                text = text.replace("${" + variable.getKey() + "}", resolvedVariable); //variable use is enclosed in '${' '}'
             }
             return text;
         }
@@ -151,8 +147,7 @@ public class PropertiesParser {
 
     public String toString() {
         return "input arguments: " + inputArguments
-                + "\nnodeToProperties: " + nodeToProperties
-                + "\nselectedNodes: " + selectedNodes
-                + "\nnodeSequences: " + nodeSequences;
+                + "\nname to properties: " + nameToProperties
+                + "\nnames: " + names;
     }
 }

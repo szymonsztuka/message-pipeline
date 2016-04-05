@@ -21,7 +21,7 @@ public class CommandParser {
             switch (token) {
                 case "(": //start of new child
                     Command child = new Command();
-                    parent.children.add(child);
+                    parent.childCommands.add(child);
                     parse(tokens, child);
                     break;
                 case ")": //end of child
@@ -32,12 +32,12 @@ public class CommandParser {
                         if (token.equals("}")) {
                             break;
                         } else if (!token.equals(",")) {
-                            parent.layer.add(token);
+                            parent.names.add(token);
                         }
                     }
                     break;
                 default: //me
-                    parent.layer.add(token);
+                    parent.names.add(token);
             }
         }
     }

@@ -1,4 +1,4 @@
-package radar.node;
+package radar.processor;
 
 import radar.message.*;
 
@@ -10,19 +10,19 @@ import java.util.Map;
 
 public class NodeFactory<T> {
 
-    private final EncoderFactory<T> encoderFactory;
-    private final ReaderFactory<T> readerFactory;
+    private final EncoderFactory encoderFactory;
+    private final ReaderFactory readerFactory;
     private final DecoderFactory decoderFactory;
     private final ScriptFactory scriptFactory;
 
-    public NodeFactory(ReaderFactory<T> readerFactory, EncoderFactory<T> encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory){
+    public NodeFactory(ReaderFactory readerFactory, EncoderFactory encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory){
         this.encoderFactory = encoderFactory;
         this.decoderFactory = decoderFactory;
         this.scriptFactory = scriptFactory;
         this.readerFactory = readerFactory;
     }
 
-    public Node createNode(Map.Entry<String, Map<String, String>> e) {
+    public Processor createNode(Map.Entry<String, Map<String, String>> e) {
 
         if ("sender".equals(e.getValue().get("type"))) {
             int clientsNumber;
@@ -31,8 +31,8 @@ public class NodeFactory<T> {
             } else {
                 clientsNumber = 1;
             }
-            List<Encoder<T>> generators = new ArrayList<>(clientsNumber);
-            List<Reader<T>> readers = new ArrayList<>(clientsNumber);
+            List<Encoder> generators = new ArrayList<>(clientsNumber);
+            List<Reader> readers = new ArrayList<>(clientsNumber);
             for (int j = 0; j < clientsNumber; j++) {
                 generators.add(encoderFactory.getMessageEncoder(e.getValue().get("encoder")));
                 readers.add(readerFactory.getReader());

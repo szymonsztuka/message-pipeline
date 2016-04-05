@@ -1,5 +1,5 @@
 package radar.message;
 
-public interface ReaderFactory<T> {
-    Reader<T> getReader();
+public interface ReaderFactory {
+    Reader getReader();
 }

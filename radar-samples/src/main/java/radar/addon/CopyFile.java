@@ -8,12 +8,10 @@ public class CopyFile {
         for (String xa : args) {
             System.out.println(xa);
         }
-
         if (args.length != 3) {
             System.out.println("usage: java Copy source target");
             return;
         }
-
         Path source = Paths.get(args[0] + "/" + args[2]);
         Path target = Paths.get(args[1] + "/" + args[2]);
         if (!Files.exists(target.getParent())) {

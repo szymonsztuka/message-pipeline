@@ -1,4 +1,4 @@
-package radar.node;
+package radar.processor;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;

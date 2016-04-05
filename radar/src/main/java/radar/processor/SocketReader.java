@@ -1,4 +1,4 @@
-package radar.node;
+package radar.processor;
 
 import radar.message.Decoder;
 import org.slf4j.Logger;
@@ -24,7 +24,7 @@ import java.util.Set;
 /**
  * from socket to file
  */
-public class SocketReader implements Node {
+public class SocketReader implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(SocketReader.class);
 
@@ -64,8 +64,6 @@ public class SocketReader implements Node {
                         keySocketChannel = (SocketChannel) key.channel();
                         if (key.isConnectable()) {
                             if (keySocketChannel.isConnectionPending()) {
-                                //System.out.println(keySocketChannel.getLocalAddress());
-                                //System.out.println(keySocketChannel.getRemoteAddress());
                                 keySocketChannel.finishConnect();
                             }
                         }
@@ -73,7 +71,6 @@ public class SocketReader implements Node {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
             logger.error(e.getMessage(), e);
         }
     }
@@ -89,7 +86,6 @@ public class SocketReader implements Node {
             try {
                 selector.close();
             } catch (IOException e) {
-                e.printStackTrace();
                 logger.error(e.getMessage(), e);
             }
         }
@@ -98,7 +94,6 @@ public class SocketReader implements Node {
                 try {
                     keySocketChannel.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
                     logger.error(e.getMessage(), e);
                 }
             }
@@ -108,7 +103,6 @@ public class SocketReader implements Node {
                 try {
                     socketChannel.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
                     logger.error(e.getMessage(), e);
                 }
             }
@@ -125,7 +119,7 @@ public class SocketReader implements Node {
             try {
                 Files.createDirectories(path.getParent());
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error(e.getMessage(), e);
             }
         }
         process = true;
@@ -149,7 +143,6 @@ public class SocketReader implements Node {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
             logger.error(e.getMessage(), e);
         }
     }

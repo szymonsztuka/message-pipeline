@@ -1,4 +1,4 @@
-package radar.node;
+package radar.processor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,7 +7,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 
-public class LocalScript implements Node {
+public class LocalScript implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(LocalScript.class);
 

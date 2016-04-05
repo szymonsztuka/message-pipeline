@@ -6,19 +6,19 @@ import radar.message.DecoderFactory;
 import radar.message.EncoderFactory;
 import radar.message.ReaderFactory;
 import radar.message.ScriptFactory;
-import radar.node.NodeFactory;
-import radar.topology.Sequence;
-import radar.topology.SequenceBuilder;
+import radar.processor.NodeFactory;
+import radar.topology.Pipeline;
+import radar.topology.PipelineBuilder;
 
-public class Radar<T> {
+public class Radar {
 
-    private final ReaderFactory<T> readerFactory;
-    private final EncoderFactory<T> encoderFactory;
+    private final ReaderFactory readerFactory;
+    private final EncoderFactory encoderFactory;
     private final DecoderFactory decoderFactory;
     private final ScriptFactory scriptFactory;
     private final String[] configurationFiles;
 
-    public Radar(ReaderFactory<T> readerFactory, EncoderFactory<T> encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory, String[] configurationFiles ) {
+    public Radar(ReaderFactory readerFactory, EncoderFactory encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory, String[] configurationFiles ) {
         this.readerFactory = readerFactory;
         this.encoderFactory = encoderFactory;
         this.decoderFactory = decoderFactory;
@@ -29,15 +29,15 @@ public class Radar<T> {
     public void run() {
         PropertiesParser propertiesParser = new PropertiesParser(configurationFiles);
         CommandParser commandParser = new CommandParser(propertiesParser.rawCommand);
-        NodeFactory<T> nodeFactory = new NodeFactory<>(readerFactory,
+        NodeFactory nodeFactory = new NodeFactory(readerFactory,
                 encoderFactory,
                 decoderFactory,
                 scriptFactory);
-        SequenceBuilder sequenceBuilder = new SequenceBuilder(
+        PipelineBuilder pipelineBuilder = new PipelineBuilder(
                 nodeFactory, //TODO generic type is lost :|
                 commandParser.command,
-                propertiesParser.nodeToProperties);
-        for(Sequence seq: sequenceBuilder.sequences) {
+                propertiesParser.nameToProperties);
+        for(Pipeline seq: pipelineBuilder.pipelines) {
             Thread th = new Thread(seq);
             th.start();
             try {
