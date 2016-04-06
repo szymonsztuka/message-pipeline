@@ -6,11 +6,7 @@ import radar.conf.Command;
 import radar.conf.PropertiesParser;
 import radar.processor.*;
 
-import java.io.IOException;
-import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
@@ -29,24 +25,12 @@ public class TopologyBuilder {
         this.processorFactory = processorFactory;
         for (Command child: command.childCommands) {
             Map<String, String> dataStreamPath = PropertiesParser.getParentKeyToChildProperty(nodeToProperties, child.getAllNames(), "input");
-            List<String> fileNames = Collections.EMPTY_LIST;
-            if (dataStreamPath.size() > 0) {
-                String firstKey = dataStreamPath.keySet().iterator().next();
-                Path basePath = Paths.get(dataStreamPath.get(firstKey));
-                if (Files.isDirectory(basePath, LinkOption.NOFOLLOW_LINKS)) {
-                    RecursiveFileCollector walk = new RecursiveFileCollector();
-                    try {
-                        Files.walkFileTree(basePath, walk);
-                    } catch (IOException ex) {
-                        ex.printStackTrace();
-                    }
-                    fileNames = walk.result.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
-                }
-                logger.info(String.format("Creating tap with %s steps from %s.input=%s with pipeline:\n%s", fileNames.size() , firstKey, basePath, child));
-            } else {
+            if(dataStreamPath.isEmpty()) {
                 logger.info(String.format("Creating tap with default once off step (no property '.input') with pipeline:\n%s", child));
+            } else {
+                logger.info(String.format("Creating tap with steps sources %s with pipeline:\n%s", dataStreamPath, child));
             }
-            taps.add(new Tap(fileNames, createPipeline(child, nodeToProperties)));
+             taps.add(new Tap(dataStreamPath, createPipeline(child, nodeToProperties)));
         }
     }
 
@@ -79,16 +63,5 @@ public class TopologyBuilder {
             }
         }
         return new Pipeline(startBarrier, stopBarrier, nodes, childPipelines);
-    }
-
-    private class RecursiveFileCollector extends SimpleFileVisitor<Path> {
-
-        public final List<Path> result = new ArrayList<>();
-
-        @Override
-        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-            result.add(file);
-            return FileVisitResult.CONTINUE;
-        }
     }
 }
