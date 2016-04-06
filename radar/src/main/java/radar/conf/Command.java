@@ -4,7 +4,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class Command {
-    public Set<String> names = new TreeSet<>();
+    public Set<String> names = new TreeSet<>(); //TODO this contained below
+    public Map<String,Map<String,String>> nameToProperties; //TODO parser more
     public List<Command> childCommands = new ArrayList<>(1);
 
     public Command() {

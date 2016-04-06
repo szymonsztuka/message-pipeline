@@ -7,8 +7,8 @@ import radar.message.EncoderFactory;
 import radar.message.ReaderFactory;
 import radar.message.ScriptFactory;
 import radar.processor.NodeFactory;
-import radar.topology.Pipeline;
-import radar.topology.PipelineBuilder;
+import radar.topology.Tap;
+import radar.topology.TopologyBuilder;
 
 public class Radar {
 
@@ -33,11 +33,11 @@ public class Radar {
                 encoderFactory,
                 decoderFactory,
                 scriptFactory);
-        PipelineBuilder pipelineBuilder = new PipelineBuilder(
-                nodeFactory, //TODO generic type is lost :|
+        TopologyBuilder topologyBuilder = new TopologyBuilder(
+                nodeFactory,
                 commandParser.command,
                 propertiesParser.nameToProperties);
-        for(Pipeline seq: pipelineBuilder.pipelines) {
+        for(Tap seq: topologyBuilder.taps) {
             Thread th = new Thread(seq);
             th.start();
             try {

@@ -16,15 +16,15 @@ import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
 import java.util.stream.Collectors;
 
-public class PipelineBuilder {
+public class TopologyBuilder {
 
-    private static final Logger logger = LoggerFactory.getLogger(PipelineBuilder.class);
+    private static final Logger logger = LoggerFactory.getLogger(TopologyBuilder.class);
 
     private final NodeFactory nodeFactory;
 
-    public final List<Pipeline> pipelines = new ArrayList<>(1);
+    public final List<Tap> taps = new ArrayList<>(1);
 
-    public PipelineBuilder(NodeFactory nodeFactory, Command command, Map<String, Map<String, String>> nodeToProperties) {
+    public TopologyBuilder(NodeFactory nodeFactory, Command command, Map<String, Map<String, String>> nodeToProperties) {
 
         this.nodeFactory = nodeFactory;
         for (Command child: command.childCommands) {
@@ -42,47 +42,43 @@ public class PipelineBuilder {
                     }
                     fileNames = walk.result.stream().map(p -> basePath.relativize(p)).map(Path::toString).collect(Collectors.toList());
                 }
-                logger.info(String.format("Interpreting topology with %s steps from %s.input=%s:\n%s", fileNames.size() , firstKey, basePath, child));
+                logger.info(String.format("Creating tap with %s steps from %s.input=%s with pipeline:\n%s", fileNames.size() , firstKey, basePath, child));
             } else {
-                logger.info("Interpreting topology without steps (no property '.input' provided within the scope):\n" + child );
+                logger.info(String.format("Creating tap with default once off step (no property '.input') with pipeline:\n%s", child));
             }
-            pipelines.add(parseSteps(child, nodeToProperties, fileNames));
+            taps.add(new Tap(fileNames, createPipeline(child, nodeToProperties)));
         }
     }
 
-    private Pipeline parseSteps(Command command, Map<String, Map<String, String>> allCommands, List<String> steps) {
+    /** recursive call*/
+    private Pipeline createPipeline(Command command, Map<String, Map<String, String>> allCommands) {
+
+        List<Pipeline> childPipelines = command.childCommands.stream()
+                .map(e -> createPipeline(e, allCommands))
+                .collect(Collectors.toList()); //create child pipelines first
 
         Map<String, Map<String, String>> sequenceCommand = allCommands.entrySet().stream()
                 .filter(a -> command.names.contains(a.getKey()))
                 .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
-        List<Pipeline> childPipelines = command.childCommands.stream()
-                .map(e -> parseSteps(e, allCommands, steps))
-                .collect(Collectors.toList());
-        return createSequence(sequenceCommand, steps, childPipelines);
-    }
 
-    private Pipeline createSequence(Map<String, Map<String, String>> command, List<String> names, List<Pipeline> childPipelines) {
-
-        CyclicBarrier startBarrier = new CyclicBarrier(command.size() + 1);
-        CyclicBarrier stopBarrier = new CyclicBarrier(command.size() + 1);
-        List<Node> nodes = new ArrayList<>(command.size());
-        for (Map.Entry<String, Map<String, String>> entry : command.entrySet()) {
+        CyclicBarrier startBarrier = new CyclicBarrier(sequenceCommand.size() + 1);
+        CyclicBarrier stopBarrier = new CyclicBarrier(sequenceCommand.size() + 1);
+        List<Node> nodes = new ArrayList<>(sequenceCommand.size());
+        for (Map.Entry<String, Map<String, String>> entry : sequenceCommand.entrySet()) {
             Processor processor = nodeFactory.createNode(entry);
             if (processor != null) { //TODO nodes number should equal command.size() otherwise Pipeline will block on a barrier
                 int stepEndDelay = 0;
-                try {
-                    stepEndDelay = Integer.parseInt(entry.getValue().get("stepEndDelay"));
-                } catch (NumberFormatException e) {
-                    logger.warn(e.getMessage());
+                if(entry.getValue().containsKey("stepEndDelay")) {
+                    try {
+                        stepEndDelay = Integer.parseInt(entry.getValue().get("stepEndDelay"));
+                    } catch (NumberFormatException e) {
+                        logger.warn(e.getMessage());
+                    }
                 }
                 nodes.add(new Node(entry.getKey(), processor, startBarrier, stopBarrier, stepEndDelay));
             }
         }
-        if (names.size() == 0) {
-            names = new ArrayList(1);
-            names.add("1"); //TODO once off sequence
-        }
-        return new Pipeline(names, startBarrier, stopBarrier, nodes, childPipelines);
+        return new Pipeline(startBarrier, stopBarrier, nodes, childPipelines);
     }
 
     private class RecursiveFileCollector extends SimpleFileVisitor<Path> {

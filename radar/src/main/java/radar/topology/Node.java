@@ -62,6 +62,7 @@ public class Node implements Runnable {
             try {
                 logger.trace(name + " end " + stepStart.getParties() + " " + stepStart.getNumberWaiting());
                 if( millisecondsStepEndDelay > 0){
+                    logger.trace(name + " sleep " + millisecondsStepEndDelay);
                     Thread.sleep(millisecondsStepEndDelay);
                 }
                 stepEnd.await();
@@ -70,5 +71,9 @@ public class Node implements Runnable {
             }
         }
         processor.end();
+    }
+    @Override
+    public String toString() {
+        return processor.getClass().getSimpleName().toString();
     }
 }
