@@ -8,14 +8,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class NodeFactory<T> {
+public class ProcessorFactory {
 
     private final EncoderFactory encoderFactory;
     private final ReaderFactory readerFactory;
     private final DecoderFactory decoderFactory;
     private final ScriptFactory scriptFactory;
 
-    public NodeFactory(ReaderFactory readerFactory, EncoderFactory encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory){
+    public ProcessorFactory(ReaderFactory readerFactory, EncoderFactory encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory){
         this.encoderFactory = encoderFactory;
         this.decoderFactory = decoderFactory;
         this.scriptFactory = scriptFactory;

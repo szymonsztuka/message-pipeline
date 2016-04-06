@@ -20,13 +20,13 @@ public class TopologyBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(TopologyBuilder.class);
 
-    private final NodeFactory nodeFactory;
+    private final ProcessorFactory processorFactory;
 
     public final List<Tap> taps = new ArrayList<>(1);
 
-    public TopologyBuilder(NodeFactory nodeFactory, Command command, Map<String, Map<String, String>> nodeToProperties) {
+    public TopologyBuilder(ProcessorFactory processorFactory, Command command, Map<String, Map<String, String>> nodeToProperties) {
 
-        this.nodeFactory = nodeFactory;
+        this.processorFactory = processorFactory;
         for (Command child: command.childCommands) {
             Map<String, String> dataStreamPath = PropertiesParser.getParentKeyToChildProperty(nodeToProperties, child.getAllNames(), "input");
             List<String> fileNames = Collections.EMPTY_LIST;
@@ -65,7 +65,7 @@ public class TopologyBuilder {
         CyclicBarrier stopBarrier = new CyclicBarrier(sequenceCommand.size() + 1);
         List<Node> nodes = new ArrayList<>(sequenceCommand.size());
         for (Map.Entry<String, Map<String, String>> entry : sequenceCommand.entrySet()) {
-            Processor processor = nodeFactory.createNode(entry);
+            Processor processor = processorFactory.createNode(entry);
             if (processor != null) { //TODO nodes number should equal command.size() otherwise Pipeline will block on a barrier
                 int stepEndDelay = 0;
                 if(entry.getValue().containsKey("stepEndDelay")) {

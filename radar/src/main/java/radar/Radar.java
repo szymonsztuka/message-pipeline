@@ -6,7 +6,7 @@ import radar.message.DecoderFactory;
 import radar.message.EncoderFactory;
 import radar.message.ReaderFactory;
 import radar.message.ScriptFactory;
-import radar.processor.NodeFactory;
+import radar.processor.ProcessorFactory;
 import radar.topology.Tap;
 import radar.topology.TopologyBuilder;
 
@@ -29,12 +29,12 @@ public class Radar {
     public void run() {
         PropertiesParser propertiesParser = new PropertiesParser(configurationFiles);
         CommandParser commandParser = new CommandParser(propertiesParser.rawCommand);
-        NodeFactory nodeFactory = new NodeFactory(readerFactory,
+        ProcessorFactory processorFactory = new ProcessorFactory(readerFactory,
                 encoderFactory,
                 decoderFactory,
                 scriptFactory);
         TopologyBuilder topologyBuilder = new TopologyBuilder(
-                nodeFactory,
+                processorFactory,
                 commandParser.command,
                 propertiesParser.nameToProperties);
         for(Tap seq: topologyBuilder.taps) {
