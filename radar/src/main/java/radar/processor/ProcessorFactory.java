@@ -10,14 +10,14 @@ import java.util.Map;
 
 public class ProcessorFactory {
 
-    private final EncoderFactory encoderFactory;
+    private final StringConverterFactory stringConverterFactory;
     private final ReaderFactory readerFactory;
-    private final DecoderFactory decoderFactory;
+    private final ByteConverterFactory byteConverterFactory;
     private final ScriptFactory scriptFactory;
 
-    public ProcessorFactory(ReaderFactory readerFactory, EncoderFactory encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory){
-        this.encoderFactory = encoderFactory;
-        this.decoderFactory = decoderFactory;
+    public ProcessorFactory(ReaderFactory readerFactory, StringConverterFactory stringConverterFactory, ByteConverterFactory byteConverterFactory, ScriptFactory scriptFactory){
+        this.stringConverterFactory = stringConverterFactory;
+        this.byteConverterFactory = byteConverterFactory;
         this.scriptFactory = scriptFactory;
         this.readerFactory = readerFactory;
     }
@@ -31,10 +31,10 @@ public class ProcessorFactory {
             } else {
                 clientsNumber = 1;
             }
-            List<Encoder> generators = new ArrayList<>(clientsNumber);
+            List<StringConverter> generators = new ArrayList<>(clientsNumber);
             List<Reader> readers = new ArrayList<>(clientsNumber);
             for (int j = 0; j < clientsNumber; j++) {
-                generators.add(encoderFactory.getMessageEncoder(e.getValue().get("encoder")));
+                generators.add(stringConverterFactory.getStringConverter(e.getValue().get("encoder")));
                 readers.add(readerFactory.getReader());
             }
           return new SocketWriter(Paths.get(e.getValue().get("input")),
@@ -45,7 +45,7 @@ public class ProcessorFactory {
             return new SocketReader(
                     new InetSocketAddress(e.getValue().get("ip"), Integer.parseInt(e.getValue().get("port"))),
                     Paths.get(e.getValue().get("output")),
-                    decoderFactory.getMessageDecoder(e.getValue().get("decoder")));
+                    byteConverterFactory.getByteConverter(e.getValue().get("decoder")));
         } else if ("localscript".equals(e.getValue().get("type"))) {
             return new LocalScript(e.getValue().get("script"));
         } else if ("sshscript".equals(e.getValue().get("type"))) {

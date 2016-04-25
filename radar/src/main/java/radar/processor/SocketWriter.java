@@ -2,7 +2,7 @@ package radar.processor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import radar.message.Encoder;
+import radar.message.StringConverter;
 import radar.message.Reader;
 
 import java.io.File;
@@ -27,7 +27,7 @@ public class SocketWriter implements Processor {
     private final Path dir;
     private final InetSocketAddress address;
     private final List<Reader> readers;
-    private final List<Encoder> encoders;
+    private final List<StringConverter> stringConverters;
     private final CyclicBarrier internalStepStart;
     private final CyclicBarrier internalStepEnd;
     private final List<InternalSocketWriter> writers = new ArrayList<>();
@@ -35,14 +35,14 @@ public class SocketWriter implements Processor {
     private ServerSocketChannel serverSocketChannel;
     private final List<SocketChannel> sockets = new ArrayList<>(1);
 
-    public SocketWriter(Path src, InetSocketAddress dst, List<Reader> readers, List<Encoder> encoders) {
+    public SocketWriter(Path src, InetSocketAddress dst, List<Reader> readers, List<StringConverter> stringConverters) {
 
         this.dir = src;
         this.address = dst;
         this.readers = readers;
-        this.encoders = encoders;
-        this.internalStepStart = new CyclicBarrier(this.encoders.size() + 1);
-        this.internalStepEnd = new CyclicBarrier(this.encoders.size() + 1);
+        this.stringConverters = stringConverters;
+        this.internalStepStart = new CyclicBarrier(this.stringConverters.size() + 1);
+        this.internalStepEnd = new CyclicBarrier(this.stringConverters.size() + 1);
     }
 
     @Override
@@ -55,12 +55,12 @@ public class SocketWriter implements Processor {
                 serverSocketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
                 serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
                 serverSocketChannel.bind(address);
-                logger.trace(encoders.size() + " connections available on " + address.toString());
-                for (int i = 0; i < encoders.size(); i++) {
+                logger.trace(stringConverters.size() + " connections available on " + address.toString());
+                for (int i = 0; i < stringConverters.size(); i++) {
                     try {
                         SocketChannel socketChannel = serverSocketChannel.accept();
                         sockets.add(socketChannel);
-                        InternalSocketWriter internalSocketWriter = new InternalSocketWriter(socketChannel, readers.get(i), encoders.get(i), internalStepStart, internalStepEnd); //TODO below should be factory invocation
+                        InternalSocketWriter internalSocketWriter = new InternalSocketWriter(socketChannel, readers.get(i), stringConverters.get(i), internalStepStart, internalStepEnd); //TODO below should be factory invocation
                         writers.add(internalSocketWriter);
                         Thread subThread = new Thread(internalSocketWriter);
                         subThread.setName(Thread.currentThread().getName() + "-" + i); //optional
@@ -136,18 +136,18 @@ public class SocketWriter implements Processor {
 
         private final SocketChannel socketChannel;
         private final Reader reader;
-        private final Encoder encoder;
+        private final StringConverter stringConverter;
         private final CyclicBarrier internalStepStart;
         private final CyclicBarrier internalStepEnd;
         volatile boolean process = true;
         volatile Path path;
 
-        public InternalSocketWriter(SocketChannel socketChannel, Reader reader, Encoder encoder,
+        public InternalSocketWriter(SocketChannel socketChannel, Reader reader, StringConverter stringConverter,
                                     CyclicBarrier internalStepStart, CyclicBarrier internalStepEnd) {
 
             this.socketChannel = socketChannel;
             this.reader = reader;
-            this.encoder = encoder;
+            this.stringConverter = stringConverter;
             this.internalStepStart = internalStepStart;
             this.internalStepEnd = internalStepEnd;
         }
@@ -171,7 +171,7 @@ public class SocketWriter implements Processor {
                 String message;
                 while ((message = reader.readMessage()) != null) {
                     try {
-                        encoder.write(message, buffer);
+                        stringConverter.convert(message, buffer);
                         buffer.flip();
                         socketChannel.write(buffer);
                         //if (buffer.remaining() > 0) { System.out.println("! remaining " + buffer.remaining() + " " + buffer.limit() + " " + buffer.position()); }

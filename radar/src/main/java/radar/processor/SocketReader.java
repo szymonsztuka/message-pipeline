@@ -1,6 +1,6 @@
 package radar.processor;
 
-import radar.message.Decoder;
+import radar.message.ByteConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,14 +30,14 @@ public class SocketReader implements Processor {
 
     private final InetSocketAddress address;
     private final Path dir;
-    private final Decoder receiver;
+    private final ByteConverter receiver;
     private final ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
     private volatile boolean process = true;
     private SocketChannel socketChannel;
     private SocketChannel keySocketChannel;
     private Selector selector;
 
-    public SocketReader(InetSocketAddress src, Path dst, Decoder receiver) {
+    public SocketReader(InetSocketAddress src, Path dst, ByteConverter receiver) {
         this.receiver = receiver;
         this.address = src;
         this.dir = dst;
@@ -110,7 +110,7 @@ public class SocketReader implements Processor {
     }
 
     /**
-     * Read from socket and write to file
+     * Read from socket and convert to file
      */
     @Override
     public void step(Path step) {
@@ -124,21 +124,21 @@ public class SocketReader implements Processor {
         }
         process = true;
         try (BufferedWriter writer = Files.newBufferedWriter(path, Charset.forName("UTF-8"), StandardOpenOption.CREATE)) {
-            logger.trace("read started");
+            logger.trace("convert started");
             while (keySocketChannel.read(buffer) != -1) {
                 if (buffer.position() > 0) {
                     buffer.flip();
-                    String line = receiver.read(buffer);
+                    String line = receiver.convert(buffer);
                     writer.write(line);
                     writer.newLine();
-                    logger.trace("read " + line);
+                    logger.trace("convert " + line);
                     if (buffer.hasRemaining()) {
                         buffer.compact();
                     } else {
                         buffer.clear();
                     }
                 } else if (!process) {
-                    logger.trace("read stopped");
+                    logger.trace("convert stopped");
                     break;
                 }
             }

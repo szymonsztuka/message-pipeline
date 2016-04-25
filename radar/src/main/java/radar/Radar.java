@@ -2,8 +2,8 @@ package radar;
 
 import radar.conf.CommandParser;
 import radar.conf.PropertiesParser;
-import radar.message.DecoderFactory;
-import radar.message.EncoderFactory;
+import radar.message.ByteConverterFactory;
+import radar.message.StringConverterFactory;
 import radar.message.ReaderFactory;
 import radar.message.ScriptFactory;
 import radar.processor.ProcessorFactory;
@@ -13,15 +13,15 @@ import radar.topology.TopologyBuilder;
 public class Radar {
 
     private final ReaderFactory readerFactory;
-    private final EncoderFactory encoderFactory;
-    private final DecoderFactory decoderFactory;
+    private final StringConverterFactory stringConverterFactory;
+    private final ByteConverterFactory byteConverterFactory;
     private final ScriptFactory scriptFactory;
     private final String[] configurationFiles;
 
-    public Radar(ReaderFactory readerFactory, EncoderFactory encoderFactory, DecoderFactory decoderFactory, ScriptFactory scriptFactory, String[] configurationFiles ) {
+    public Radar(ReaderFactory readerFactory, StringConverterFactory stringConverterFactory, ByteConverterFactory byteConverterFactory, ScriptFactory scriptFactory, String[] configurationFiles ) {
         this.readerFactory = readerFactory;
-        this.encoderFactory = encoderFactory;
-        this.decoderFactory = decoderFactory;
+        this.stringConverterFactory = stringConverterFactory;
+        this.byteConverterFactory = byteConverterFactory;
         this.scriptFactory = scriptFactory;
         this.configurationFiles = configurationFiles;
     }
@@ -30,8 +30,8 @@ public class Radar {
         PropertiesParser propertiesParser = new PropertiesParser(configurationFiles);
         CommandParser commandParser = new CommandParser(propertiesParser.rawCommand);
         ProcessorFactory processorFactory = new ProcessorFactory(readerFactory,
-                encoderFactory,
-                decoderFactory,
+                stringConverterFactory,
+                byteConverterFactory,
                 scriptFactory);
         TopologyBuilder topologyBuilder = new TopologyBuilder(
                 processorFactory,

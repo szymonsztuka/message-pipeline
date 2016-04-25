@@ -2,9 +2,9 @@ package radar.message;
 
 import java.nio.ByteBuffer;
 
-public class HexEncoder implements Encoder{
+public class HexEncoder implements StringConverter {
     @Override
-    public boolean write(String src, ByteBuffer dst) {
+    public boolean convert(String src, ByteBuffer dst) {
         //http://stackoverflow.com/questions/8890174/in-java-how-do-i-convert-a-hex-string-to-a-byte
         int len = src.length();
         byte[] data = new byte[len / 2];
